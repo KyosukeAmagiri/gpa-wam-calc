@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>GPA &amp; WAM Calculator</title>
+  <meta name="description" content="Track your WAM and GPA, plan the marks you need and import your results straight from a MySR PDF. Everything stays on your device.">
+  <meta name="theme-color" content="#9d2235">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 36'%3E%3Cpath d='M0 0h32v24L16 36 0 24z' fill='%239d2235'/%3E%3Ctext x='16' y='21' font-family='Arial' font-weight='700' font-size='13' text-anchor='middle' fill='white'%3EW%3C/text%3E%3C/svg%3E">
+  <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/css/app.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('gpawam.state.v1');
+        var pref = raw ? (JSON.parse(raw).prefs || {}).theme : 'system';
+        var dark = pref === 'dark' || ((!pref || pref === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (pref === 'dark' || pref === 'light') document.documentElement.dataset.theme = pref;
+        document.documentElement.dataset.resolvedTheme = dark ? 'dark' : 'light';
+      } catch (e) { document.documentElement.dataset.resolvedTheme = 'light'; }
+    })();
+  </script>
+</head>
+<body>
+  <div class="app">
+    <aside class="side" id="side" aria-label="Main navigation">
+      <a class="brand" href="#/dashboard" aria-label="GPA and WAM Calculator home">
+        <span class="brand-mark" aria-hidden="true">W</span>
+        <span class="brand-text"><b>GPA &amp; WAM</b><span>CALCULATOR</span></span>
+      </a>
+      <nav class="nav" id="nav"></nav>
+      <div class="side-foot">
+        <div class="privacy"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.4 8.2 8 9 4.6-.8 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span>Your marks are saved only in this browser. Nothing is uploaded.</span></div>
+      </div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="menu-btn" aria-label="Open menu"></button>
+        <div class="crumbs"><h1 id="page-title">Dashboard</h1><p id="page-sub"></p></div>
+        <div class="top-actions">
+          <span class="save-state" id="save-state" aria-live="polite"><i></i><span>Saved on this device</span></span>
+          <button class="btn primary" id="btn-import" type="button"></button>
+          <div class="menu" id="export-menu">
+            <button class="btn" id="btn-export" type="button" aria-haspopup="true" aria-expanded="false"></button>
+            <div class="menu-list" role="menu" id="export-list"></div>
+          </div>
+          <button class="icon-btn" id="btn-theme" type="button" aria-label="Toggle dark mode"></button>
+        </div>
+      </header>
+      <main class="content" id="view" tabindex="-1"></main>
+      <footer class="page-foot">Independent student tool. Not affiliated with or endorsed by Western Sydney University. Always confirm results against MySR and the official handbook.</footer>
+    </div>
+  </div>
+  <input type="file" id="file-json" accept="application/json,.json" hidden>
+  <noscript><p style="padding:24px">This calculator needs JavaScript enabled.</p></noscript>
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
