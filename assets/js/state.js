@@ -48,7 +48,7 @@ export function defaultState() {
     },
     subjects: [],
     assessments: [],
-    planner: { seed: 2026, formShift: '', overrides: {}, scenario: [], desired: '', remainingCP: '' },
+    planner: { seed: 2026, formShift: '', overrides: {}, scenario: [], desired: '', desiredGPA: '', remainingCP: '' },
     prereqs: defaultPrereqs(),
     offerings: defaultOfferings(),
     history: [],

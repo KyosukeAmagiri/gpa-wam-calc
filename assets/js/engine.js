@@ -448,9 +448,11 @@ export function compute(state, opts = {}) {
     return { prefix: p, label: discLabel(p), n: rows.filter(r => r.cnt).length, cp, wam: cp ? sum(rows, r => r.qp) / cp : '', gpa: cp ? sum(rows, r => r.gpc) / cp : '', hd: rows.filter(r => r.cnt && r.grade === 'HD').length, k };
   }).filter(d => d.cp > 0).sort((a, b) => b.wam - a.wam || a.k - b.k);
 
+  // Final WAM and GPA if the remaining CP average each mark; the GPA assumes every remaining subject lands on it.
   const scenarioGrid = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100].map(avg => {
     const fw = CPC + CP_TO_WAM ? (WAM * CPC + avg * CP_TO_WAM) / (CPC + CP_TO_WAM) : WAM;
-    return { avg, wam: fw, gp: gpOf(bandIdx(fw)), cls: classes.length ? classes[classIdxFor(fw)].name : '', hits: fw >= S.targetWAM };
+    const fg = CPC + CP_TO_WAM ? (GPC + (gpOf(bandIdx(avg)) || 0) * CP_TO_WAM) / (CPC + CP_TO_WAM) : GPA;
+    return { avg, wam: fw, gpa: fg, cls: classes.length ? classes[classIdxFor(fw)].name : '', hits: fw >= S.targetWAM, hitsGPA: fg >= S.targetGPA - 1e-9 };
   });
 
   const base = {
@@ -629,10 +631,11 @@ export function computeMonteCarlo(E, planner) {
     }
   }
   const W = Array.from(wams), G = Array.from(gpas);
-  const sorted = [...W].sort((a, b) => a - b);
+  const sorted = [...W].sort((a, b) => a - b), sortedG = [...G].sort((a, b) => a - b);
   const share = (arr, thr) => arr.filter(x => x >= thr - 1e-6).length / MC_N;
   const fcIdx = E.classes.findIndex(c => /^first/i.test(c.name));
   const FC_MIN = E.classes.length ? E.classes[fcIdx >= 0 ? fcIdx : 0].min : 80;
+  const FC_NAME = E.classes.length ? E.classes[fcIdx >= 0 ? fcIdx : 0].name : 'top class';
   const mean = W.reduce((s, x) => s + x, 0) / MC_N;
   const anMean = CPT ? (QP0 + rows.reduce((s, r) => s + r.W * r.mean, 0)) / CPT : 0;
   const anSd = CPT ? Math.sqrt(rows.reduce((s, r) => s + r.W * r.W * r.varr, 0) + (rows.reduce((s, r) => s + r.W * r.E, 0) * tau) ** 2) / CPT : 0;
@@ -641,27 +644,42 @@ export function computeMonteCarlo(E, planner) {
   const hLo = floorTo(minW, 0.5);
   const hW = Math.max(0.25, ceilTo((ceilTo(maxW, 0.5) - hLo) / 24, 0.25));
   const tgt = S.targetWAM;
-  const cnt = (lo, hi) => W.filter(x => x >= lo && x < hi).length / MC_N;
-  const hist = Array.from({ length: 24 }, (_, f) => {
-    const from = hLo + f * hW, to = from + hW + (f === 23 ? 0.001 : 0);
+  // Stacked shares per bin, split at two thresholds in whichever order they fall, so no scenario is counted twice.
+  const histogram = (vals, lo, width, bins, cuts, labelOf) => {
+    const [c1, c2] = [...cuts].sort((p, q) => p.at - q.at);
+    const t1 = c1.at - 1e-6, t2 = c2.at - 1e-6;
+    const cnt = (a, b) => vals.filter(x => x >= a && x < b).length / MC_N;
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
     return {
-      from, to, label: f1(from), all: cnt(from, to),
-      below: from >= FC_MIN ? 0 : cnt(from, Math.min(to, FC_MIN)),
-      first: to <= FC_MIN || from >= tgt ? 0 : cnt(Math.max(from, FC_MIN), Math.min(to, tgt)),
-      target: to <= tgt ? 0 : cnt(Math.max(from, tgt), to),
+      names: [`Below ${c1.name}`, `${cap(c1.name)} to ${c2.name}`, `At or above ${c2.name}`],
+      bins: Array.from({ length: bins }, (_, f) => {
+        const from = lo + f * width, to = from + width + (f === bins - 1 ? 0.001 : 0);
+        return { from, to, ...labelOf(from, from + width), all: cnt(from, to), parts: [cnt(from, Math.min(to, t1)), cnt(Math.max(from, t1), Math.min(to, t2)), cnt(Math.max(from, t2), to)] };
+      }),
     };
-  });
+  };
+  const hist = histogram(W, hLo, hW, 24, [{ at: FC_MIN, name: FC_NAME }, { at: tgt, name: 'target' }],
+    (a, b) => ({ label: f1(a), title: `Final WAM ${f2(a)} to ${f2(b)}` }));
+  // A final GPA can only land on a fixed grid (grade points × CP ÷ total CP), so its bins follow that grid.
+  const gcdF = (a, b) => (b < 1e-7 ? a : gcdF(b, a % b));
+  const gVals = sortedG.filter((x, k) => !k || x - sortedG[k - 1] > 1e-9);
+  const gStep = Math.max(1e-4, gVals.length > 1 ? gVals.slice(1).map((x, k) => x - gVals[k]).reduce(gcdF) : 0.05);
+  const gMin = gVals[0] ?? 0, gPts = Math.round(((gVals[gVals.length - 1] ?? 0) - gMin) / gStep) + 1, gPer = Math.ceil(gPts / 24);
+  const histG = histogram(G, gMin - gStep / 2, gStep * gPer, Math.ceil(gPts / gPer), [{ at: S.uniMedalGPA, name: 'Uni Medal' }, { at: S.targetGPA, name: 'target' }],
+    (a, b) => ({ label: f2(a + gStep / 2), title: gPer === 1 ? `Final GPA ${f2(a + gStep / 2)}` : `Final GPA ${f2(a + gStep / 2)} to ${f2(b - gStep / 2)}` }));
   const ladder = E.classes.map((c, k) => ({
     name: c.name, badge: c.badge, min: c.min,
     p: share(W, c.min) - (k ? share(W, E.classes[k - 1].min) : 0),
   }));
   return {
-    seed, tau, tauSuggested, tauIn, rows, UNALLOC_CP, CPT, FC_MIN, wams: W, gpas: G, hist, ladder, hasRemaining: rows.some(r => r.W > 0),
+    seed, tau, tauSuggested, tauIn, rows, UNALLOC_CP, CPT, FC_MIN, FC_NAME, wams: W, gpas: G, hist, histG, ladder, hasRemaining: rows.some(r => r.W > 0),
     mean, sd: stdev(W), p10: percentile(sorted, 0.1), p50: percentile(sorted, 0.5), p90: percentile(sorted, 0.9), min: minW, max: maxW,
     pFC: share(W, FC_MIN), pTarget: share(W, tgt), pMedal: share(G, S.uniMedalGPA), pDean: share(G, S.deansMedalGPA), pTargetGPA: share(G, S.targetGPA),
-    gpaMean: G.reduce((s, x) => s + x, 0) / MC_N,
+    gpaMean: G.reduce((s, x) => s + x, 0) / MC_N, gpaSd: stdev(G),
+    gp10: percentile(sortedG, 0.1), gp50: percentile(sortedG, 0.5), gp90: percentile(sortedG, 0.9),
     anMean, anSd, anPFC: pNorm(FC_MIN), anPTarget: pNorm(tgt),
     expWAM: CPT ? (QP0 + rows.reduce((s, r) => s + r.W * r.c, 0)) / CPT : 0,
+    expGPA: CPT ? (GP0 + rows.reduce((s, r) => s + r.W * gpOfMark(round(r.c, 0)), 0)) / CPT : 0,
     reconOK: Math.abs(mean - anMean) <= 0.15,
   };
 }
@@ -737,23 +755,45 @@ function computePlan(E, prereqs, offerings) {
   };
 }
 
-// What-if sandbox and reverse solver (Planner sheet).
-export function whatIf(E, scenario, desired, remainingCP) {
+// What-if sandbox and reverse solver (Planner sheet), for WAM and GPA side by side.
+export function whatIf(E, scenario, desired, remainingCP, desiredGPA) {
+  const { bandIdx, gpOf } = E.helpers;
+  const gpMark = mk => gpOf(bandIdx(mk)) || 0;
   const rows = (scenario || []).map(s => ({ ...s, cp: num(s.cp), target: num(s.target) }));
   const valid = rows.filter(r => r.cp !== '' && r.target !== '');
   const cp = valid.reduce((s, r) => s + r.cp, 0);
   const qp = valid.reduce((s, r) => s + r.cp * r.target, 0);
-  const { WAM, CP_COUNTED } = E.m;
+  const gq = valid.reduce((s, r) => s + r.cp * gpMark(r.target), 0);
+  const { WAM, GPA, CP_COUNTED, GPC } = E.m;
   const proj = CP_COUNTED + cp ? (WAM * CP_COUNTED + qp) / (CP_COUNTED + cp) : WAM;
+  const projGPA = CP_COUNTED + cp ? (GPC + gq) / (CP_COUNTED + cp) : GPA;
   const ci = E.classes.length ? E.helpers.classIdxFor(proj) : -1;
   const d = num(desired) === '' ? E.S.targetWAM : num(desired);
   const rem = num(remainingCP) === '' ? E.m.CP_TO_WAM : num(remainingCP);
   const req = rem > 0 ? (d * (CP_COUNTED + rem) - WAM * CP_COUNTED) / rem : '';
   const reqGrade = req === '' ? '—' : (E.bands.find(b => req >= b.min && req <= b.max) || {}).grade || '—';
   const verdict = req === '' ? 'Enter remaining CP.' : req > 100 ? `🚫 Not achievable: needs ${f1(req)}` : req <= E.S.passMark ? '😎 Comfortable: passes are enough' : `🎯 Achievable: average ${f1(req)}`;
+  // GPA moves in whole grade points, so the required average is read as a mix of the two grades either side of it.
+  const dG = num(desiredGPA) === '' ? E.S.targetGPA : num(desiredGPA);
+  const reqG = rem > 0 ? (dG * (CP_COUNTED + rem) - GPC) / rem : '';
+  const ladder = E.bands.map(b => ({ grade: b.grade, gp: E.S.gpaScale === 4 ? b.gp4 : b.gp7, pass: b.max >= E.S.passMark })).sort((a, b) => a.gp - b.gp);
+  const passes = ladder.filter(x => x.pass);
+  const topGP = ladder.length ? ladder[ladder.length - 1].gp : 0;
+  let reqGPAGrade = '—', verdictGPA = 'Enter remaining CP.';
+  if (reqG !== '' && ladder.length) {
+    const lo = [...ladder].reverse().find(x => x.gp <= reqG + 1e-9), hi = ladder.find(x => x.gp >= reqG - 1e-9);
+    if (reqG > topGP + 1e-9) verdictGPA = `🚫 Not achievable: needs ${f2(reqG)}, above the ${topGP} maximum`;
+    else if (!lo || (passes.length && reqG <= passes[0].gp + 1e-9)) { reqGPAGrade = (passes[0] || ladder[0]).grade; verdictGPA = '😎 Comfortable: passes are enough'; }
+    else if (hi.gp - lo.gp < 1e-9) { reqGPAGrade = hi.grade; verdictGPA = `🎯 Achievable: ${hi.grade} or better in every remaining subject`; }
+    else {
+      reqGPAGrade = `${lo.grade} to ${hi.grade}`;
+      verdictGPA = `🎯 Achievable: ${hi.grade} on at least ${Math.ceil((reqG - lo.gp) / (hi.gp - lo.gp) * 100 - 1e-9)}% of the remaining CP, ${lo.grade} on the rest`;
+    }
+  }
   return {
-    rows, cp, qp, avg: cp ? qp / cp : 0, totalCP: CP_COUNTED + cp, proj, change: proj - WAM,
+    rows, cp, qp, avg: cp ? qp / cp : 0, avgGP: cp ? gq / cp : 0, totalCP: CP_COUNTED + cp, proj, change: proj - WAM, projGPA, changeGPA: projGPA - GPA,
     projClass: ci < 0 ? '—' : `${E.classes[ci].badge} ${E.classes[ci].name}`.trim(),
-    meets: proj >= E.S.targetWAM, short: E.S.targetWAM - proj, desired: d, remaining: rem, required: req, reqGrade, verdict,
+    meets: proj >= E.S.targetWAM, short: E.S.targetWAM - proj, meetsGPA: projGPA >= E.S.targetGPA - 1e-9, shortGPA: E.S.targetGPA - projGPA,
+    desired: d, remaining: rem, required: req, reqGrade, verdict, desiredGPA: dG, requiredGPA: reqG, reqGPAGrade, verdictGPA,
   };
 }

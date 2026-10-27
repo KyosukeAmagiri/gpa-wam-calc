@@ -204,6 +204,7 @@ select.cell { appearance: none; cursor: pointer; padding-right: 4px; }
 .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .g-2-1 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
 .g-3-2 { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.grid.top { align-items: start; }
 .stack { display: flex; flex-direction: column; gap: 18px; }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .spacer { flex: 1; }
@@ -277,6 +278,15 @@ select.cell { appearance: none; cursor: pointer; padding-right: 4px; }
 .stat-list .k { color: var(--ink-2); font-size: 13px; }
 .stat-list .v { margin-left: auto; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .stat-list .v small { color: var(--muted); font-weight: 500; }
+.stat-list .v .big { font-size: 20px; }
+.stat-list .r.duo { display: grid; grid-template-columns: minmax(0, 1fr) 104px 104px; gap: 10px; }
+.stat-list .r.duo .v { margin-left: 0; }
+.stat-list .r.duo.head { padding: 14px 0 5px; }
+.stat-list .r.duo.head .v { font-size: 11px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.tbl td.hit { color: var(--good); font-weight: 650; }
+.tbl .tick { display: inline-block; width: 1.2em; text-align: right; }
+/* Monte Carlo cards: WAM along the top row and GPA beneath; phones pair them side by side instead */
+.kpis.mc { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto auto; grid-auto-flow: column; }
 .goal { padding: 10px 0 12px; border-bottom: 1px solid var(--line); }
 .goal:last-child { border-bottom: 0; }
 .goal .top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; font-size: 13px; }
@@ -481,6 +491,8 @@ svg.chart .mark.hover { filter: brightness(1.12); }
 @media (max-width: 640px) {
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .kpis .kpi.hero { grid-column: span 2; }
+  .kpis.mc { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; grid-auto-flow: row; }
+  .stat-list .r.duo { grid-template-columns: minmax(0, 1fr) 84px 84px; }
   .kpi { padding: 13px 14px; }
   .kpi .value { font-size: 24px; }
   .kpi.hero .value { font-size: 44px; }
