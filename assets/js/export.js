@@ -10,6 +10,28 @@ export function exportJSON(state) {
   toast('Backup downloaded. Keep it somewhere safe.', 'good');
 }
 
+// ---------- calendar (.ics) ----------
+// Ungraded assessments with a due date become all-day events with a reminder two days before.
+export function exportCalendar(E) {
+  const items = E.assessments.filter(a => a.name && a.due && !a.graded);
+  if (!items.length) { toast('No upcoming due dates to export. Add due dates to ungraded assessments first.'); return; }
+  const pad = n => String(n).padStart(2, '0');
+  const day = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+  const icsText = s => String(s).replace(/[\\;,]/g, c => `\\${c}`).replace(/\r?\n/g, '\\n');
+  const fold = line => { let out = '', rest = line; while (rest.length > 73) { out += rest.slice(0, 73) + '\r\n '; rest = rest.slice(73); } return out + rest; };
+  const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const ev = items.flatMap(a => {
+    const next = new Date(a.due.getFullYear(), a.due.getMonth(), a.due.getDate() + 1);
+    const title = `${a.code ? `${a.code} · ` : ''}${a.name}${a.weight !== '' ? ` (${a.weight}%)` : ''}`;
+    return ['BEGIN:VEVENT', `UID:${a.id}@gpa-wam-calc`, `DTSTAMP:${now}`, `DTSTART;VALUE=DATE:${day(a.due)}`, `DTEND;VALUE=DATE:${day(next)}`,
+      `SUMMARY:${icsText(title)}`, `DESCRIPTION:${icsText([a.subject, a.type, a.comment].filter(Boolean).join(' · '))}`,
+      'BEGIN:VALARM', 'TRIGGER:-P2D', 'ACTION:DISPLAY', `DESCRIPTION:${icsText(`${title} is due in 2 days`)}`, 'END:VALARM', 'END:VEVENT'];
+  });
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//GPA and WAM Calculator//EN', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:Assessment due dates', ...ev, 'END:VCALENDAR'].map(fold).join('\r\n') + '\r\n';
+  download(`assessment-due-dates-${stamp()}.ics`, ics, 'text/calendar;charset=utf-8');
+  toast(`${items.length} due date(s) exported. Open the file to add them to your calendar.`, 'good');
+}
+
 // ---------- transfer link ----------
 // The whole record, deflated and base64url-encoded into the link's # part. Browsers never send the # part to a server.
 const toB64url = bytes => {

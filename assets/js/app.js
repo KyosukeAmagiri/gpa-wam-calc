@@ -1,8 +1,9 @@
 import { compute, num, cleanCode } from './engine.js';
-import { loadState, saveState, normaliseState, defaultState, sampleState, storageAvailable, clearStored, uid } from './state.js';
-import { html, icon, toast, confirmDialog, openModal } from './ui.js';
+import { loadState, saveState, flushSave, STATE_KEY, normaliseState, defaultState, sampleState, storageAvailable, clearStored, uid } from './state.js';
+import { html, icon, toast, confirmDialog, openModal, fmt, fmtSigned } from './ui.js';
 import SUBJECTS from '../data/subjects.js';
 import * as exporter from './export.js';
+import { openPalette } from './palette.js';
 
 import dashboard from './views/dashboard.js';
 import subjects from './views/subjects.js';
@@ -51,6 +52,8 @@ function recompute() {
 const saveEl = () => document.getElementById('save-state');
 function persist() {
   const el = saveEl();
+  el.classList.toggle('sandbox', !!sandbox);
+  if (sandbox) { el.querySelector('span').textContent = 'Sandbox · changes not saved'; return; }
   el.classList.add('unsaved');
   el.querySelector('span').textContent = 'Saving…';
   saveState(state, ok => {
@@ -65,6 +68,7 @@ export function update(mutator, { rerender = true } = {}) {
   if (rerender) render();
 }
 export function replaceState(next) {
+  sandbox = null; // loading a sample, backup or link is already confirmed, so it ends any sandbox
   state = normaliseState(next);
   applyTheme();
   persist();
@@ -73,6 +77,20 @@ export function replaceState(next) {
 }
 export const getState = () => state;
 export const getE = () => E;
+window.addEventListener('pagehide', flushSave);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
+// Another tab saved: take its version rather than overwriting it with this tab's older copy on the next edit.
+window.addEventListener('storage', e => {
+  if (e.key !== STATE_KEY || !e.newValue) return;
+  if (sandbox) { toast('Another tab saved changes. Keeping your sandbox changes would replace them.'); return; }
+  try {
+    state = normaliseState(JSON.parse(e.newValue));
+    applyTheme();
+    recompute();
+    render();
+    toast('Updated with changes made in another tab.');
+  } catch (err) { /* ignore a half-written value */ }
+});
 
 // ---------- binding: data-bind="kind:key:field" ----------
 function parseValue(el) {
@@ -159,6 +177,7 @@ export function render() {
     v.mount && v.mount(viewEl(), ctx);
     mountCharts();
     renderNav();
+    renderSandbox();
     window.scrollTo(0, scrollY);
     restoreFocus(focus);
   }, 0);
@@ -247,6 +266,13 @@ const view = viewEl();
 view.addEventListener('change', e => {
   const el = e.target.closest('[data-bind]');
   if (!el) return;
+  // An assessment score typed as "18/20" or "90%" fills in what it is out of as well.
+  const [kind, id, field] = el.dataset.bind.split(':');
+  const frac = kind === 'as' && field === 'score' && el.value.match(/^\s*(\d+(?:\.\d+)?)\s*(?:\/\s*(\d+(?:\.\d+)?)|(%))\s*$/);
+  if (frac) {
+    update(s => { const a = s.assessments.find(x => x.id === id); if (!a) return; a.score = Number(frac[1]); if (frac[2]) a.outOf = Number(frac[2]); else if (a.outOf === '' || a.outOf === undefined) a.outOf = 100; });
+    return;
+  }
   applyBind(el.dataset.bind, parseValue(el));
 });
 view.addEventListener('keydown', e => {
@@ -309,6 +335,7 @@ document.getElementById('export-list').innerHTML = html`
   <button data-x="xlsx" role="menuitem">${icon('file')}<span>Excel workbook (.xlsx)<small>Subjects, assessments, terms, summary</small></span></button>
   <button data-x="csv-subjects" role="menuitem">${icon('book')}<span>Subjects (.csv)</span></button>
   <button data-x="csv-assess" role="menuitem">${icon('list')}<span>Assessments (.csv)</span></button>
+  <button data-x="ics" role="menuitem">${icon('calendar')}<span>Due dates to calendar (.ics)<small>Google, Outlook or Apple Calendar</small></span></button>
   <hr>
   <button data-x="print" role="menuitem">${icon('print')}<span>Print or save summary as PDF</span></button>`.s;
 document.getElementById('btn-export').addEventListener('click', e => {
@@ -333,6 +360,7 @@ export function runExport(kind) {
     else if (kind === 'xlsx') exporter.exportXLSX(state, E);
     else if (kind === 'csv-subjects') exporter.exportSubjectsCSV(E);
     else if (kind === 'csv-assess') exporter.exportAssessmentsCSV(E);
+    else if (kind === 'ics') exporter.exportCalendar(E);
     else if (kind === 'print') { go('summary'); setTimeout(() => window.print(), 400); }
   } catch (err) {
     console.error(err);
@@ -354,6 +382,99 @@ document.getElementById('file-json').addEventListener('change', async e => {
   } catch (err) {
     toast(err.message || 'Could not read that file.', 'error');
   }
+});
+
+// ---------- sandbox: try changes against a frozen copy of the saved record, then keep or discard them ----------
+let sandbox = null; // { base: saved state, baseM: its metrics }
+const sandboxChanged = () => sandbox && JSON.stringify({ ...state, updatedAt: 0 }) !== JSON.stringify({ ...sandbox.base, updatedAt: 0 });
+function enterSandbox() {
+  flushSave();
+  sandbox = { base: JSON.parse(JSON.stringify(state)), baseM: E.m };
+  persist();
+  render();
+  toast('Sandbox on: change anything you like. Nothing is saved until you choose Keep changes.');
+}
+async function leaveSandbox(keep) {
+  if (!sandbox) return;
+  if (!keep && sandboxChanged() && !(await confirmDialog('Discard sandbox changes?', 'Your saved record stays exactly as it was before the sandbox.', 'Discard changes', true))) return;
+  const base = sandbox.base;
+  sandbox = null;
+  if (keep) persist();
+  else {
+    // the saved copy is already the base, so there is nothing to write
+    state = normaliseState(base); applyTheme(); recompute();
+    saveEl().classList.remove('sandbox', 'unsaved');
+    saveEl().querySelector('span').textContent = 'Saved on this device';
+  }
+  render();
+  toast(keep ? 'Sandbox changes saved.' : 'Sandbox closed. Your saved record is unchanged.', keep ? 'good' : undefined);
+}
+function renderSandbox() {
+  const btn = document.getElementById('btn-sandbox');
+  btn.setAttribute('aria-pressed', String(!!sandbox));
+  btn.innerHTML = html`${icon('flask')}<span class="lbl">${sandbox ? 'Exit sandbox' : 'Sandbox'}</span>`.s;
+  document.body.classList.toggle('in-sandbox', !!sandbox);
+  let bar = document.getElementById('sandbox-bar');
+  if (!sandbox) { if (bar) bar.remove(); return; }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'sandbox-bar';
+    bar.setAttribute('role', 'region');
+    bar.setAttribute('aria-label', 'Sandbox');
+    bar.addEventListener('click', e => { const b = e.target.closest('[data-sb]'); if (b) leaveSandbox(b.dataset.sb === 'keep'); });
+    document.body.appendChild(bar);
+  }
+  const b = sandbox.baseM, n = E.m;
+  const delta = (label, now, base, d) => {
+    const diff = now - base, k = Math.abs(diff) < 10 ** -d / 2 ? 'same' : diff > 0 ? 'up' : 'down';
+    return html`<span class="sb-d"><small>${label}</small><b>${fmt(now, d)}</b><em class="${k}">${k === 'same' ? '±0' : fmtSigned(diff, d)}</em></span>`;
+  };
+  bar.innerHTML = html`<span class="sb-tag">${icon('flask', 16)}Sandbox</span>
+    <span class="sb-deltas" aria-live="polite">${delta('WAM', n.WAM, b.WAM, 2)}${delta('GPA', n.GPA, b.GPA, 3)}${delta('CP', n.CP_DONE, b.CP_DONE, 0)}</span>
+    <span class="sb-acts"><button class="btn sm" data-sb="discard" type="button">Discard</button><button class="btn primary sm" data-sb="keep" type="button">${icon('check', 15)}Keep changes</button></span>`.s;
+}
+document.getElementById('btn-sandbox').addEventListener('click', () => (sandbox ? leaveSandbox(false) : enterSandbox()));
+window.addEventListener('beforeunload', e => { if (sandboxChanged()) { e.preventDefault(); e.returnValue = ''; } });
+
+// ---------- command palette ----------
+function paletteItems() {
+  const items = [];
+  NAV.flatMap(([, list]) => list).forEach(([id, label, ic]) => items.push({ label, icon: ic, group: 'Pages', keywords: id, run: () => go(id) }));
+  const act = (label, ic, run, keywords = '') => items.push({ label, icon: ic, group: 'Actions', run, keywords });
+  act('Import results from MySR', 'upload', () => openImport(), 'pdf paste screenshot transcript');
+  act(sandbox ? 'Leave the sandbox' : 'Start a sandbox (try changes without saving)', 'flask', () => (sandbox ? leaveSandbox(false) : enterSandbox()), 'what if test experiment');
+  act('Add a subject', 'plus', () => { update(s => { s.subjects.push(blankSubject(s)); }); go('subjects'); }, 'new unit');
+  act('Excel workbook (.xlsx)', 'file', () => runExport('xlsx'), 'export spreadsheet');
+  act('Back up everything (JSON)', 'shield', () => runExport('json'), 'export save backup');
+  act('Restore from a backup', 'refresh', () => runExport('restore'), 'import json load');
+  act('Transfer link to another device', 'upload', () => runExport('link'), 'share phone sync move');
+  act('Due dates to my calendar (.ics)', 'calendar', () => runExport('ics'), 'export google outlook apple reminders deadlines');
+  act('Print or save the academic summary as PDF', 'print', () => runExport('print'), 'transcript pdf');
+  act('Switch between light and dark', document.documentElement.dataset.resolvedTheme === 'dark' ? 'sun' : 'moon', () => document.getElementById('btn-theme').click(), 'dark mode theme');
+  E.ledger.filter(r => r.code).forEach(r => items.push({
+    label: `${r.code} · ${r.name || 'Unnamed subject'}`, hint: [r.status, r.mark !== '' ? `mark ${fmt(r.mark, 0)}` : ''].filter(Boolean).join(' · '),
+    icon: 'book', group: 'Subjects', keywords: r.category, run: () => openSubject(r),
+  }));
+  return items;
+}
+// Opens the page that holds a subject and briefly highlights it there.
+function openSubject(r) {
+  const page = r.status === 'In Progress' || E.assessments.some(a => a.code === r.code) ? 'assessments' : 'subjects';
+  go(page);
+  setTimeout(() => {
+    const el = page === 'assessments'
+      ? [...viewEl().querySelectorAll('.card-head h3')].find(h => h.textContent.trim().startsWith(r.code))?.closest('.card')
+      : viewEl().querySelector(`[data-bind="sub:${r.id}:code"]`)?.closest('tr');
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1700);
+  }, 150);
+}
+document.getElementById('btn-palette').innerHTML = icon('search').s;
+document.getElementById('btn-palette').addEventListener('click', () => openPalette(paletteItems));
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(paletteItems); }
 });
 
 // ---------- transfer link ----------

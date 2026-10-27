@@ -86,10 +86,11 @@ export function loadState() {
   return { state: defaultState(), stored: false };
 }
 
-let saveTimer = null;
+let saveTimer = null, pending = null;
 export function saveState(state, onSaved) {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
+  pending = () => {
+    pending = null;
     try {
       state.updatedAt = new Date().toISOString();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -98,8 +99,16 @@ export function saveState(state, onSaved) {
       console.warn('Could not save', e);
       onSaved && onSaved(false);
     }
-  }, 250);
+  };
+  saveTimer = setTimeout(pending, 250);
 }
+// Writes a waiting save straight away, so closing the tab right after an edit does not lose it.
+export function flushSave() {
+  if (!pending) return;
+  clearTimeout(saveTimer);
+  pending();
+}
+export const STATE_KEY = STORAGE_KEY;
 
 export function clearStored() {
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* storage unavailable */ }

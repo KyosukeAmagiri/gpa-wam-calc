@@ -21,7 +21,7 @@ const latticeAlpha = k => frac(Math.sqrt(PRIMES[k % PRIMES.length] + (k >= PRIME
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 export const num = v => {
   if (v === null || v === undefined || v === '') return '';
-  const n = typeof v === 'number' ? v : Number(String(v).replace(/,/g, '').trim());
+  const n = typeof v === 'number' ? v : Number(String(v).replace(/[,%\s]/g, ''));
   return Number.isFinite(n) ? n : '';
 };
 const round = (x, d = 0) => { const f = 10 ** d; return Math.sign(x) * Math.round(Math.abs(x) * f + 1e-9) / f; };
@@ -204,7 +204,9 @@ export function compute(state, opts = {}) {
     const status = s.status || '';
     const cp = num(s.cp);
     const markIn = num(s.mark);
-    let mark = markIn;
+    // A mark outside 0–100 is a typo: leave it out of every average and let Data health flag it.
+    const badMark = markIn !== '' && (markIn < 0 || markIn > 100);
+    let mark = badMark ? '' : markIn;
     let fromAssess = false;
     if (mark === '' && (status === 'In Progress' || status === 'Completed')) {
       const wd = sumBy(code, a => a.wdone);
@@ -217,7 +219,7 @@ export function compute(state, opts = {}) {
     const term = year !== '' && sem !== '' ? year * 10 + sem : '';
     return {
       id: s.id, i: s._i, year, sem, code, name: (s.name || '').trim() || lookupName(code) || '', customName: (s.name || '').trim(),
-      category: s.category || '', cp, status, markIn, mark, fromAssess, notes: s.notes || '', target: num(s.target),
+      category: s.category || '', cp, status, markIn, mark, fromAssess, badMark, notes: s.notes || '', target: num(s.target),
       cnt, band, grade: band === '' ? '' : bands[band].grade, gp,
       qp: cnt ? mark * (cp || 0) : 0, cpc: cnt ? (cp || 0) : 0, gpc: cnt && band !== '' ? gp * (cp || 0) : 0,
       term, tkey: !code ? 0 : (term === '' ? 99 : term), disc: code ? code.slice(0, 4) : '',
@@ -244,7 +246,7 @@ export function compute(state, opts = {}) {
     } else { r.cumWAM = ''; r.cumGPA = ''; }
     r.delta = r.cnt ? r.mark - WAM : '';
     r.rank = r.cnt ? marksC.filter(m => m > r.mark).length + 1 : '';
-    r.flag = !r.code ? '' : r.dup > 1 ? '🔁' : r.status === 'Planned' ? '🗓' : r.status === 'In Progress' && r.mark === '' ? '⏳'
+    r.flag = !r.code ? '' : r.badMark ? '⚠️' : r.dup > 1 ? '🔁' : r.status === 'Planned' ? '🗓' : r.status === 'In Progress' && r.mark === '' ? '⏳'
       : r.mark === '' ? '' : r.mark < S.passMark ? '❌' : r.mark >= S.hdThr ? '🔥' : r.mark >= WAM ? '▲' : '▼';
     r.rem = r.code && !r.cnt && (r.status === 'In Progress' || r.status === 'Planned') ? 1 : 0;
     r.trflag = !r.code ? 0 : ['Completed', 'Failed', 'Credit Transfer', 'Exempt'].includes(r.status) ? 1 : r.status === 'In Progress' ? 2 : 0;
@@ -331,6 +333,9 @@ export function compute(state, opts = {}) {
   const NEED_AVG_GPA = need(S.targetGPA, GPA);
   const MAX_POSSIBLE = CPC + CP_TO_WAM ? (WAM * CPC + 100 * CP_TO_WAM) / (CPC + CP_TO_WAM) : WAM;
   const MIN_POSSIBLE = CPC + CP_TO_WAM ? (WAM * CPC) / (CPC + CP_TO_WAM) : WAM;
+  // The top grade in every remaining subject caps the final GPA, which is often well below the scale maximum.
+  const TOP_BAND = bands.reduce((t, b) => (!t || gpOf(bands.indexOf(b)) > gpOf(bands.indexOf(t)) ? b : t), null);
+  const MAX_POSSIBLE_GPA = CPC + CP_TO_WAM ? (GPC + (TOP_BAND ? gpOf(bands.indexOf(TOP_BAND)) : 0) * CP_TO_WAM) / (CPC + CP_TO_WAM) : GPA;
   const GOAL_FEASIBLE = CP_TO_WAM <= 0 ? (WAM >= S.targetWAM ? 1 : 0) : (NEED_AVG_WAM <= 100 ? 1 : 0);
   const PACE_CP_SEM = TERMS_N ? CP_DONE / TERMS_N : 0;
   const SEM_TO_FINISH = PACE_CP_SEM <= 0 ? SEM_LEFT : Math.ceil(CP_REMAIN / PACE_CP_SEM - 1e-12);
@@ -414,8 +419,10 @@ export function compute(state, opts = {}) {
   const STAT_MISSING = L.filter(r => r.code && !r.status).length;
   const BAND_GAP = bands.length ? 0 : 1;
   const AT_RISK_N = N_FAIL;
-  const ISSUE_COUNT = DUP_CODES + CP_MISSING + STAT_MISSING + BAND_GAP + AT_RISK_N + OVERDUE_N + WEIGHT_ERRORS + UNLINKED.length;
+  const BAD_MARKS = L.filter(r => r.code && r.badMark).length;
+  const ISSUE_COUNT = DUP_CODES + CP_MISSING + STAT_MISSING + BAND_GAP + AT_RISK_N + OVERDUE_N + WEIGHT_ERRORS + UNLINKED.length + BAD_MARKS;
   const HEALTH_MSG = ISSUE_COUNT === 0 ? '✅ All clean'
+    : BAD_MARKS > 0 ? `⚠️ ${BAD_MARKS} mark(s) outside 0–100, left out of your averages`
     : AT_RISK_N > 0 ? `❌ ${AT_RISK_N} fail(s) to review`
       : UNLINKED.length > 0 ? `🆕 ${UNLINKED.length} subject(s) logged in Assessments but missing from Subjects`
         : OVERDUE_N > 0 ? `⏰ ${OVERDUE_N} overdue item(s)`
@@ -488,6 +495,7 @@ export function compute(state, opts = {}) {
       MARK_N, MARK_MAX, MARK_MIN, MARK_AVG, MARK_MED, MARK_SD, BEST: best || null, WORST: worst || null, N_HD, N_FAIL, HD_RATE, PASS_RATE,
       SEM_LEFT, CP_PCT, GPA_PCT, WAM_PCT_TARGET, GPA_PCT_TARGET, TERMS_N, SLOPE, INTERCEPT, R2, FORECAST_TERM, FORECAST_FINAL,
       LAST_TERM: lastT || null, PREV_TERM_WAM, MOMENTUM, BEST_TERM: bestT, CONSISTENCY, NEED_AVG_WAM, NEED_AVG_GPA, MAX_POSSIBLE, MIN_POSSIBLE,
+      MAX_POSSIBLE_GPA, TOP_GRADE: TOP_BAND ? TOP_BAND.grade : '',
       GOAL_FEASIBLE, GOAL_GAP: S.targetWAM - WAM, PACE_CP_SEM, SEM_TO_FINISH, CLASS_IDX, CLASS: cls, NEXT_CLASS: NEXT, NEED_NEXT_CLASS,
       AT_RISK_N, UNGRADED_ASSESS, OVERDUE_N, DUE_SOON_N, WEIGHT_ERRORS, DUP_CODES, CP_MISSING, STAT_MISSING, BAND_GAP, ISSUE_COUNT,
       UNLINKED_CODES: UNLINKED.length, IP_HD_BANKED, IP_ON_TRACK_HD, GRADE: gradeOf(WAM),
@@ -811,8 +819,12 @@ export function whatIf(E, scenario, desired, remainingCP, desiredGPA) {
     else if (!lo || (passes.length && reqG <= passes[0].gp + 1e-9)) { reqGPAGrade = (passes[0] || ladder[0]).grade; verdictGPA = '😎 Comfortable: passes are enough'; }
     else if (hi.gp - lo.gp < 1e-9) { reqGPAGrade = hi.grade; verdictGPA = `🎯 Achievable: ${hi.grade} or better in every remaining subject`; }
     else {
+      // With standard 10 CP subjects the mix becomes a subject count: k higher grades out of n is enough once k/n reaches the share.
+      const share = (reqG - lo.gp) / (hi.gp - lo.gp), units = rem % 10 === 0 ? rem / 10 : 0, k = Math.ceil(share * units - 1e-9);
       reqGPAGrade = `${lo.grade} to ${hi.grade}`;
-      verdictGPA = `🎯 Achievable: ${hi.grade} on at least ${Math.ceil((reqG - lo.gp) / (hi.gp - lo.gp) * 100 - 1e-9)}% of the remaining CP, ${lo.grade} on the rest`;
+      verdictGPA = units
+        ? `🎯 Achievable: ${hi.grade} in at least ${k} of your ${units} remaining subjects (10 CP each), ${lo.grade} in the rest`
+        : `🎯 Achievable: ${hi.grade} on at least ${Math.ceil(share * 100 - 1e-9)}% of the remaining CP, ${lo.grade} on the rest`;
     }
   }
   return {

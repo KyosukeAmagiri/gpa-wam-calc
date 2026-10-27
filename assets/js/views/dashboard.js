@@ -112,6 +112,7 @@ export default {
           ${stat('Latest term', m.LAST_TERM ? html`${fmt(m.LAST_TERM.wam, 1)} <small>· ${m.LAST_TERM.label}</small>` : '—')}
           ${stat('Best-case final WAM', html`${fmt(m.MAX_POSSIBLE, 1)} <small>· all 100s</small>`)}
           ${stat('Worst-case final WAM', html`${fmt(m.MIN_POSSIBLE, 1)} <small>· all zeros</small>`)}
+          ${stat('Best-case final GPA', html`${fmt(m.MAX_POSSIBLE_GPA, 3)} <small>· ${m.TOP_GRADE ? `all ${m.TOP_GRADE}s` : 'top grade everywhere'}${m.MAX_POSSIBLE_GPA + 1e-9 < S.targetGPA ? ' · below your target' : ''}</small>`)}
           ${stat('Needed for target', m.NEED_AVG_WAM === '' ? 'Degree complete'
             : html`${fmt(m.NEED_AVG_WAM, 1)} WAM · ${fmt(m.NEED_AVG_GPA, 2)} GPA <small>on ${fmt(m.CP_TO_WAM, 0)} CP${m.NEED_AVG_WAM > 100 || m.NEED_AVG_GPA > E.maxGPA ? ' · not reachable' : ''}</small>`)}
         </div>

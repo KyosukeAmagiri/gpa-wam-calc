@@ -49,7 +49,7 @@ export default {
               <td><input class="cell" data-col="name-${g.code}" data-bind="as:${a.id}:name" value="${src.name}" placeholder="e.g. Final exam" aria-label="Assessment name"></td>
               <td><select class="cell" data-bind="as:${a.id}:type" aria-label="Type">${opt('', src.type, '—')}${TYPES.map(t => opt(t, src.type))}</select></td>
               <td><input class="cell n" data-col="w-${g.code}" data-bind="as:${a.id}:weight" data-type="num" value="${src.weight}" inputmode="decimal" aria-label="Weight percent"></td>
-              <td><input class="cell n" data-col="s-${g.code}" data-bind="as:${a.id}:score" data-type="num" value="${src.score}" inputmode="decimal" aria-label="Score"></td>
+              <td><input class="cell n" data-col="s-${g.code}" data-bind="as:${a.id}:score" data-type="num" value="${src.score}" placeholder="e.g. 18/20" title="Type a score, or a fraction like 18/20 or a percentage like 90%" aria-label="Score"></td>
               <td><input class="cell n" data-col="o-${g.code}" data-bind="as:${a.id}:outOf" data-type="num" value="${src.outOf}" inputmode="decimal" aria-label="Out of"></td>
               <td class="ro n strong">${a.pct === '' ? html`<span class="muted">—</span>` : fmt(a.pct * 100, 1) + '%'}</td>
               <td class="ro n computed">${a.weighted === '' ? '' : fmt(a.weighted, 2)}</td>
