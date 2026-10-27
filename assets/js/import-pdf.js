@@ -65,7 +65,18 @@ async function readFile(file, onProgress, known) {
     }
   } else {
     source = 'ocr';
-    canvases.push(file);
+    // Screenshot text is small; doubling it (within a size cap) roughly halves the misread digits.
+    let bmp;
+    try { bmp = await createImageBitmap(file); } catch (e) { throw new Error('That image could not be opened. Try a PNG or JPG screenshot.'); }
+    const k = Math.max(1, Math.min(2, 4000 / bmp.width, Math.sqrt(16e6 / (bmp.width * bmp.height))));
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(bmp, 0, 0, c.width, c.height);
+    bmp.close();
+    canvases.push(c);
   }
   onProgress(0.2, 'Loading the text recogniser (first time only, about 10 MB)…');
   const T = await loadTesseract();
@@ -88,7 +99,7 @@ async function readFile(file, onProgress, known) {
   } finally {
     await worker.terminate();
   }
-  return { text, source, parsed: parseMySR(text, { known }), pages: canvases.length };
+  return { text, source, image: isImage, parsed: parseMySR(text, { known }), pages: canvases.length };
 }
 
 // ---------- dialog ----------
@@ -152,7 +163,11 @@ function openReview(app, res) {
   let mode = 'merge';
   let applyProgram = !!(P.program || P.cpRequired);
 
-  const gpOf = mark => { const b = S.bands.find(x => Math.round(mark * 100) / 100 >= x.min && Math.round(mark * 100) / 100 <= x.max); return b ? (S.gpaScale === 4 ? b.gp4 : b.gp7) : 0; };
+  const bandOf = mark => S.bands.find(x => Math.round(mark * 100) / 100 >= x.min && Math.round(mark * 100) / 100 <= x.max);
+  const gpOf = mark => { const b = bandOf(mark); return b ? (S.gpaScale === 4 ? b.gp4 : b.gp7) : 0; };
+  // a mark outside its MySR grade's band is almost always a misread digit
+  const bandGrades = new Set(S.bands.map(b => b.grade));
+  const markOff = r => bandGrades.has(r.grade) && (r.mark === '' || bandOf(r.mark)?.grade !== r.grade);
   const recon = () => {
     const c = rows.filter(r => r.include && (r.status === 'Completed' || r.status === 'Failed') && r.mark !== '' && r.cp);
     const cp = c.reduce((s, r) => s + r.cp, 0);
@@ -173,14 +188,14 @@ function openReview(app, res) {
         <div><span>Credit points achieved</span><b>${P.cpAchieved ?? '—'}</b> <span class="muted" style="display:inline">vs ${rc.doneCP}</span> ${P.cpAchieved === null ? '' : cpOK ? html`<span class="chip chip-good">✓ match</span>` : html`<span class="chip chip-warning">⚠ check</span>`}</div>
         <div><span>WAM from these results</span><b>${rc.wam === null ? '—' : fmt(rc.wam, 2)}</b></div>
       </div>
-      ${res.source === 'ocr' ? html`<div class="callout info" style="margin-bottom:12px">${icon('sparkle')}<span>This PDF had no selectable text, so it was read with on-device text recognition. Check the codes and marks below before importing; everything is editable.</span></div>` : ''}
+      ${res.source === 'ocr' ? html`<div class="callout info" style="margin-bottom:12px">${icon('sparkle')}<span>${res.image ? 'This is an image' : 'This PDF had no selectable text'}, so it was read with on-device text recognition. Check the codes and marks below before importing, especially any marked “mark?”; everything is editable.</span></div>` : ''}
       <div class="grid-form" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));margin-bottom:14px">
         <label class="field"><span>Commencing year (Year 1)</span><input class="input" id="rv-commence" value="${commence}" inputmode="numeric"><small>${esc(`${years.length ? `Earliest term in the PDF is ${Math.min(...years)}` : ''}`)}</small></label>
         <label class="field"><span>Import mode</span><select class="select" id="rv-mode">
           <option value="merge" ${mode === 'merge' ? 'selected' : ''}>Merge: update matching subjects, add the rest</option>
           <option value="replace" ${mode === 'replace' ? 'selected' : ''}>Replace all my subjects with these</option></select>
           <small>${hadSubjects ? `You have ${state.subjects.length} subject(s) saved. Assessments are kept either way.` : 'Nothing saved yet.'}</small></label>
-        ${P.program || P.cpRequired ? html`<label class="field" style="justify-content:center"><span>Program details</span><label class="row" style="gap:8px;font-size:13px"><input type="checkbox" id="rv-prog" ${applyProgram ? 'checked' : ''}> Use ${P.program ? `“${P.program}”` : ''}${P.program && P.cpRequired ? ' and ' : ''}${P.cpRequired ? `${P.cpRequired} total CP` : ''}</label></label>` : ''}
+        ${P.program || P.cpRequired ? html`<div class="field"><span>Program details</span><label class="check"><input type="checkbox" id="rv-prog" ${applyProgram ? 'checked' : ''}><span>Use ${P.program ? `“${P.program}”` : ''}${P.program && P.cpRequired ? ' and ' : ''}${P.cpRequired ? `${P.cpRequired} total CP` : ''}</span></label></div>` : ''}
       </div>
       <div class="tbl-wrap" style="max-height:48vh;overflow:auto;border:1px solid var(--line);border-radius:12px"><table class="tbl edit">
         <thead><tr><th class="c"><input type="checkbox" id="rv-all" ${rows.every(r => r.include) ? 'checked' : ''} aria-label="Select all"></th><th>MySR term</th><th>Study term</th><th>Code</th><th>Subject</th><th class="c">MySR grade</th><th class="n">Mark</th><th class="n">CP</th><th>Status</th></tr></thead>
@@ -190,7 +205,7 @@ function openReview(app, res) {
           <td class="ro nowrap strong">${termOf(r)}</td>
           <td><input class="cell code" style="width:100px" data-i="${i}" data-f="code" value="${r.code}"></td>
           <td class="ro" style="min-width:200px">${r.name}${!app.lookupName(r.code) ? html` <span class="chip chip-muted">not in WSU list</span>` : ''}</td>
-          <td class="ro c">${r.grade || html`<span class="muted">—</span>`}</td>
+          <td class="ro c nowrap">${r.grade || html`<span class="muted">—</span>`}${markOff(r) ? html` <span class="chip chip-warning" title="This mark doesn't fit the ${r.grade} grade">mark?</span>` : ''}</td>
           <td><input class="cell n" style="width:64px" data-i="${i}" data-f="mark" value="${r.mark}" inputmode="decimal"></td>
           <td><input class="cell n" style="width:56px" data-i="${i}" data-f="cp" value="${r.cp}" inputmode="decimal"></td>
           <td><select class="cell" style="width:126px" data-i="${i}" data-f="status">${STATUSES.map(st => html`<option ${st === r.status ? 'selected' : ''}>${st}</option>`)}</select></td>
@@ -236,6 +251,9 @@ function applyImport(app, chosen, { commence, mode, applyProgram, P }) {
       if (P.program) s.settings.program = P.program;
       if (P.cpRequired) s.settings.totalCP = P.cpRequired;
     }
+    // MySR lists this term's enrolments as in progress, so the earliest of them is the current study period
+    const ipKeys = chosen.filter(r => r.status === 'In Progress' && r.year >= commence && r.sem).map(r => (r.year - commence + 1) * 10 + r.sem);
+    if (ipKeys.length) { const k = Math.min(...ipKeys); s.settings.curYear = Math.floor(k / 10); s.settings.curSem = k % 10; }
     if (mode === 'replace') s.subjects = [];
     for (const r of chosen) {
       const year = r.year ? r.year - commence + 1 : '';

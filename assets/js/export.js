@@ -112,7 +112,7 @@ export function exportXLSX(state, E) {
     ['Credit points completed', m.CP_DONE], ['Total credit points', S.totalCP], ['Subjects completed', m.SUBJ_DONE], ['Subjects in progress', m.SUBJ_IP], ['Subjects planned', m.SUBJ_PLAN],
     ['High Distinctions', m.N_HD], ['Highest mark', m.MARK_N ? m.MARK_MAX : ''], ['Lowest mark', m.MARK_N ? m.MARK_MIN : ''], ['Mark std deviation', r2(m.MARK_SD)],
     ['Target WAM', S.targetWAM], ['Needed average on remaining CP', r2(m.NEED_AVG_WAM)], ['Projected finish (trend)', r2(m.FORECAST_FINAL)],
-    ['Monte Carlo median final WAM', r2(E.mc.p50)], ['Chance of First Class', r2(E.mc.pFC * 100)], ['Chance of target WAM', r2(E.mc.pTarget * 100)],
+    ['Monte Carlo median final WAM', r2(E.mc.p50)], ['Chance of First Class (%)', r2(E.mc.pFC * 100)], ['Chance of target WAM (%)', r2(E.mc.pTarget * 100)],
   ];
   const terms = [['Term', 'Session', 'Subjects', 'CP counted', 'Term WAM', 'Term GPA', 'Cumulative WAM', 'Cumulative GPA'],
     ...E.activeTerms.map(t => [termLabel(t.key), t.session, t.n, t.cp, r2(t.wam), r2(t.gpa), r2(t.cumWAM), r2(t.cumGPA)])];

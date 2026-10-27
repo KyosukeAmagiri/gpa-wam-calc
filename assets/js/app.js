@@ -182,15 +182,17 @@ function renderNav() {
 }
 
 // Charts mount into [data-chart] placeholders after the HTML is in place.
+// .fill boxes also redraw when their height changes.
+const boxH = el => (el.classList.contains('fill') ? Math.round(el.clientHeight) : 0);
 const ro = new ResizeObserver(entries => {
   for (const en of entries) {
     const el = en.target;
-    const w = Math.round(en.contentRect.width);
-    if (el._w && Math.abs(el._w - w) > 2 && el._chart) { el._w = w; el._chart(); } else el._w = w;
+    const w = Math.round(en.contentRect.width), h = boxH(el);
+    if (el._w && (Math.abs(el._w - w) > 2 || Math.abs(el._h - h) > 2) && el._chart) { el._w = w; el._h = h; el._chart(); } else { el._w = w; el._h = h; }
   }
 });
 function mountCharts() {
-  viewEl().querySelectorAll('.chart-box').forEach(el => { el._w = Math.round(el.clientWidth); ro.observe(el); });
+  viewEl().querySelectorAll('.chart-box').forEach(el => { el._w = Math.round(el.clientWidth); el._h = boxH(el); ro.observe(el); });
 }
 
 // ---------- routing ----------
@@ -305,7 +307,8 @@ document.getElementById('file-json').addEventListener('change', async e => {
   e.target.value = '';
   if (!f) return;
   try {
-    const data = JSON.parse(await f.text());
+    let data;
+    try { data = JSON.parse(await f.text()); } catch (e) { throw new Error('That isn’t a backup file. Choose the .json file saved by “Back up everything”.'); }
     const payload = data && data.app === 'gpa-wam-calculator' ? data.state : data;
     if (!payload || typeof payload !== 'object' || !('subjects' in payload || 'settings' in payload)) throw new Error('This file is not a calculator backup.');
     if (!(await confirmDialog('Restore this backup?', `It holds ${(payload.subjects || []).length} subject(s) and ${(payload.assessments || []).length} assessment item(s). Everything currently saved in this browser will be replaced.`, 'Restore', true))) return;

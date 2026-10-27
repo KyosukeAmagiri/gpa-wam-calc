@@ -96,10 +96,10 @@ export default {
     </section>
 
     <section class="grid g-2-1 mt">
-      <div class="card">
+      <div class="card fill">
         <div class="card-head"><h3>Credit load by term</h3><span class="sub">CP enrolled in each study period, completed and planned</span>
           <div class="actions">${raw(legend([{ label: 'Completed', color: series(0) }, { label: 'Current', color: series(1) }, { label: 'Planned', color: cssVar('--axis') }], 'box'))}</div></div>
-        <div class="card-body"><div class="chart-box" id="ch-term"></div></div>
+        <div class="card-body"><div class="chart-box fill" id="ch-term"></div></div>
       </div>
       <div class="card">
         <div class="card-head"><h3>Key statistics</h3></div>

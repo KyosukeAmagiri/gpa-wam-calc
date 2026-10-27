@@ -35,17 +35,20 @@ export const cssVar = n => getComputedStyle(document.documentElement).getPropert
 export const isDark = () => document.documentElement.dataset.resolvedTheme === 'dark';
 
 // Ordinal crimson ramp for passing grades (validated light and dark); fails stay neutral.
+// --g/--gi follow the theme; --gp/--gpi are the light colours that print uses.
 export function gradeStyle(bands, idx, passMark = 50) {
   if (idx === '' || idx === undefined || !bands[idx]) return '';
   const b = bands[idx];
-  if (b.max < passMark) return `--g:${isDark() ? '#5d5557' : '#7d7375'};--gi:#fff`;
+  if (b.max < passMark) return `--g:${isDark() ? '#5d5557' : '#7d7375'};--gi:#fff;--gp:#7d7375;--gpi:#fff`;
   const passing = bands.filter(x => x.max >= passMark).sort((p, q) => p.min - q.min);
   const k = passing.indexOf(b), n = passing.length;
   const t = n <= 1 ? 1 : k / (n - 1);
-  const L = isDark() ? 0.48 + 0.32 * t : 0.70 - 0.32 * t;
-  const hex = oklch(L, isDark() ? 0.14 : 0.15, 18);
-  const ink = L > 0.66 ? '#1b1718' : '#ffffff';
-  return `--g:${hex};--gi:${ink}`;
+  const pill = dark => {
+    const L = dark ? 0.48 + 0.32 * t : 0.70 - 0.32 * t;
+    return [oklch(L, dark ? 0.14 : 0.15, 18), L > 0.66 ? '#1b1718' : '#ffffff'];
+  };
+  const [hex, ink] = pill(isDark()), [printHex, printInk] = pill(false);
+  return `--g:${hex};--gi:${ink};--gp:${printHex};--gpi:${printInk}`;
 }
 export function gradePill(E, bandIdx, label) {
   if (bandIdx === '' || bandIdx === undefined) return html`<span class="muted">—</span>`;

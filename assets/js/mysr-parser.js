@@ -7,10 +7,14 @@ const SEASONS = [
   [/^1h$/i, 1, '1H'], [/^2h$/i, 2, '2H'],
 ];
 const KNOWN_GRADES = new Set(['HD', 'H', 'D', 'DN', 'C', 'CR', 'P', 'PS', 'PC', 'F', 'FF', 'FN', 'FW', 'AF', 'TF', 'WF', 'S', 'U', 'W', 'WN', 'AW', 'CT', 'EX', 'I', 'IN', 'NC', 'AD', 'X']);
+const MARK_GRADES = /^(HD|D|DN|C|CR|P|PS|F)$/i;
 const FAIL_GRADES = new Set(['F', 'FF', 'FN', 'FW', 'AF', 'TF', 'WF', 'U']);
 const WITHDRAWN_GRADES = new Set(['W', 'WN', 'AW']);
 const UNCOUNTED_GRADES = new Set(['S', 'U', 'CT', 'EX', 'W', 'WN', 'AW', 'I', 'IN', 'NC', 'AD', 'X']);
 const TICKS = /^(v|vv|V|VV|✓|✔|J|\/|\||y|Y|«|¥|w)$/;
+// OCR reads the "included in GPA" tick as all sorts of short junk (Vv, Jv, Ni, V4). Nothing else follows the CP column,
+// so a short non-number there is the tick.
+const isTickJunk = t => t.length <= 3 && !/^\d{1,3}(\.\d+)?$/.test(t);
 
 const L2D = { O: '0', o: '0', D: '0', Q: '0', I: '1', l: '1', i: '1', '|': '1', '!': '1', S: '5', s: '5', B: '8', Z: '2', z: '2', G: '6', g: '9', T: '7' };
 const D2L = { 0: 'O', 1: 'I', 5: 'S', 8: 'B', 2: 'Z', 6: 'G', 4: 'A' };
@@ -44,7 +48,8 @@ export function normaliseGrade(tok) {
 }
 
 function seasonOf(tok) {
-  for (const [re, sem, name] of SEASONS) if (re.test(tok)) return { sem, name };
+  const t = String(tok).replace(/[^A-Za-z0-9]/g, '');
+  for (const [re, sem, name] of SEASONS) if (re.test(t)) return { sem, name };
   return null;
 }
 
@@ -76,7 +81,9 @@ export function parseMySR(text, { known } = {}) {
 
   const rows = anchors.map((a, n) => {
     const nextI = n + 1 < anchors.length ? anchors[n + 1].i : to;
-    const after = a.toks.slice(a.k + a.span).filter(t => !TICKS.test(t));
+    // fix O/l slips inside short numbers ("1O" → "10") so marks and CP still read as numbers
+    const after = a.toks.slice(a.k + a.span).filter(t => !TICKS.test(t)).map(t => (/^[\dOoIl]{2,3}$/.test(t) && /\d/.test(t) ? t.replace(/[OoIl]/g, c => L2D[c]) : t));
+    while (after.length > 1 && isTickJunk(after[after.length - 1]) && /^\d{1,3}(\.\d+)?$/.test(after[after.length - 2])) after.pop();
     let season = a.toks.slice(0, a.k).map(seasonOf).find(Boolean) || null;
     let year = a.yearTok ? +a.yearTok : null;
     const cont = [];
@@ -100,6 +107,10 @@ export function parseMySR(text, { known } = {}) {
     if (after.length) {
       const g = normaliseGrade(after[after.length - 1]);
       if (g && after[after.length - 1].length <= 3) { grade = g; gradeRaw = after.pop(); }
+      else if (nums.length === 1 && after.length > 1 && after[after.length - 1].length <= 3 && MARK_GRADES.test(after[after.length - 2])) {
+        // a graded row whose mark OCR couldn't read ("71" → "Val"): keep the grade and leave the mark blank so the review flags it
+        after.pop(); gradeRaw = after.pop(); grade = normaliseGrade(gradeRaw);
+      }
     }
     const title = [after.join(' '), ...cont].join(' ').replace(/\s+/g, ' ').trim();
     if (mark !== '' && (mark > 100 || mark < 0)) mark = '';
@@ -115,8 +126,11 @@ export function parseMySR(text, { known } = {}) {
 
   const all = lines.join('\n');
   const num = re => { const m = all.match(re); return m ? +m[1] : null; };
-  const gpaLine = lines.find(l => /^\s*GPA\b/i.test(l) && /\d\.\d{2,3}/.test(l));
-  const gpa = gpaLine ? +gpaLine.match(/(\d\.\d{2,3})/)[1] : null;
+  // MySR prints the GPA to 3 places; OCR sometimes drops the point ("5526") or reads it as a comma.
+  const GPA_NUM = /(?<!\d)(\d)[.,]?(\d{2,3})(?!\d)/;
+  const gpaLine = lines.find(l => /^\s*GPA\b/i.test(l) && GPA_NUM.test(l));
+  const gm = gpaLine && gpaLine.match(GPA_NUM);
+  const gpa = gm ? +`${gm[1]}.${gm[2]}` : null;
   const cpRequired = num(/Total\s+Credit\s+Points\s+Required[^\d\n]*(\d{1,3})/i);
   const cpAchieved = num(/Total\s+Credit\s+Points\s+Achieved[^\d\n]*(\d{1,3})/i);
   let program = '', programCode = '';

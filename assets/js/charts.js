@@ -38,7 +38,10 @@ const css = name => getComputedStyle(document.documentElement).getPropertyValue(
 
 function frame(el, height, padL = 38, padR = 16, padT = 14, padB = 30) {
   const W = Math.max(260, Math.floor(el.clientWidth || el.parentElement?.clientWidth || 600));
-  return { W, H: height, x0: padL, x1: W - padR, y0: padT, y1: height - padB };
+  // A .fill box stretches with its card (to match a taller card beside it), but never below the asked height.
+  let H = height;
+  if (el.classList.contains('fill')) { el.style.minHeight = `${height}px`; H = Math.max(height, Math.floor(el.clientHeight)); }
+  return { W, H, x0: padL, x1: W - padR, y0: padT, y1: H - padB };
 }
 
 function yAxis(f, ticks, y, fmtTick) {

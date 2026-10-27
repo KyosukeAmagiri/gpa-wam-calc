@@ -53,12 +53,12 @@ export default {
         </section>
       </div>
       <h3>Academic record</h3>
-      <table class="tbl">
+      <div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>Session</th><th>Code</th><th>Subject</th><th class="n">CP</th><th class="n">Mark</th><th class="c">Grade</th></tr></thead>
         <tbody>${E.transcript.map(r => html`<tr><td class="nowrap muted">${sess(r)}</td><td class="code-cell">${r.code}</td><td>${r.name}</td><td class="n">${r.cp === '' ? '' : fmt(r.cp, 0)}</td>
           <td class="n">${r.trflag === 1 && r.status !== 'Credit Transfer' && r.status !== 'Exempt' && r.mark !== '' ? fmt(r.mark, 0) : ''}</td>
           <td class="c">${r.trflag === 2 ? html`<span class="muted">Enrolled</span>` : r.status === 'Credit Transfer' ? 'CT' : r.status === 'Exempt' ? 'EX' : gradePill(E, r.band)}</td></tr>`)}</tbody>
-      </table>
+      </table></div>
       <p class="note mt">Unofficial summary generated from the student's own records. Repeated units count each attempt toward the GPA. Confirm against an official Academic Transcript.</p>
     </article>`;
   },
