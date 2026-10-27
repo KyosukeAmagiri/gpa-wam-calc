@@ -217,7 +217,7 @@ export function compute(state, opts = {}) {
     const term = year !== '' && sem !== '' ? year * 10 + sem : '';
     return {
       id: s.id, i: s._i, year, sem, code, name: (s.name || '').trim() || lookupName(code) || '', customName: (s.name || '').trim(),
-      category: s.category || '', cp, status, markIn, mark, fromAssess, notes: s.notes || '',
+      category: s.category || '', cp, status, markIn, mark, fromAssess, notes: s.notes || '', target: num(s.target),
       cnt, band, grade: band === '' ? '' : bands[band].grade, gp,
       qp: cnt ? mark * (cp || 0) : 0, cpc: cnt ? (cp || 0) : 0, gpc: cnt && band !== '' ? gp * (cp || 0) : 0,
       term, tkey: !code ? 0 : (term === '' ? 99 : term), disc: code ? code.slice(0, 4) : '',
@@ -378,6 +378,31 @@ export function compute(state, opts = {}) {
     else [statusText, kind] = ['🔥 Push for HD', 'warning'];
     return { code: r.code, name: r.name, logged, graded, sofar, remaining, contrib, bonus, needHD: nHD, needD: nD, needC: nC, statusText, kind };
   });
+  // ----- per-subject mark targets: what the ungraded assessments need to land the mark the student wants -----
+  const targetPlans = new Map(L.filter(r => r.code && r.target !== '' && r.status !== 'Withdrawn').map(r => {
+    const T = r.target;
+    const contrib = sumBy(r.code, a => a.contrib), gradedW = sumBy(r.code, a => a.wdone);
+    const banked = Math.min(100, contrib + sumBy(r.code, a => a.bonus));
+    const remW = Math.max(0, 100 - gradedW);
+    const avg = gradedW > 0 ? contrib / gradedW * 100 : '';
+    const done = (r.status === 'Completed' || r.status === 'Failed') && r.mark !== '';
+    const need = !done && remW > 0 ? (T - banked) / remW * 100 : '';
+    const open = (byCode.get(r.code) || []).filter(a => a.wgt > 0 && !a.graded);
+    let kind, text;
+    if (done) [kind, text] = r.mark >= T ? ['good', `✅ Target met with a final mark of ${f1(r.mark)}`] : ['serious', `Finished ${f1(T - r.mark)} marks short with ${f1(r.mark)}`];
+    else if (banked >= T) [kind, text] = ['good', `✅ Target secured: you have already banked ${f1(banked)} marks, so there is nothing to worry about`];
+    else if (remW <= 0) [kind, text] = ['serious', `Every assessment is graded and the mark is ${f1(banked)}, ${f1(T - banked)} short`];
+    else if (need > 100) [kind, text] = ['critical', `🚫 Out of reach: full marks on the remaining ${f0(remW)}% would finish on ${f1(Math.min(100, banked + remW))}`];
+    else if (avg === '') [kind, text] = ['info', `🎯 Average ${f1(need)}% across all assessments`];
+    else if (need <= avg) [kind, text] = ['good', `🎯 On track: keep averaging ${f1(need)}% on what is left (you are on ${f1(avg)}% so far)`];
+    else [kind, text] = ['warning', `🔥 Lift your average from ${f1(avg)}% to ${f1(need)}% on what is left`];
+    return [r.code, {
+      code: r.code, id: r.id, target: T, grade: gradeOf(T), banked, gradedW, remW, avg, need, gap: Math.max(0, T - banked), kind, text, done,
+      items: need === '' || need <= 0 || need > 100 ? [] : open.map(a => ({ name: a.name || 'Untitled item', weight: a.wgt, marks: a.wgt * need / 100, score: a.outOf !== '' ? need / 100 * a.outOf : '', outOf: a.outOf })),
+      unlogged: Math.max(0, remW - open.reduce((s, a) => s + a.wgt, 0)),
+    }];
+  }));
+  tracker.forEach(t => { const p = targetPlans.get(t.code); t.target = p ? p.target : ''; t.needT = p ? p.need : ''; t.targetKind = p ? p.kind : ''; });
   const IP_HD_BANKED = tracker.filter(t => t.remaining <= 0 && t.sofar >= S.hdThr).length;
   const IP_ON_TRACK_HD = tracker.filter(t => (t.remaining <= 0 && t.sofar >= S.hdThr) || (t.remaining > 0 && t.needHD <= 100)).length;
 
@@ -456,7 +481,7 @@ export function compute(state, opts = {}) {
   });
 
   const base = {
-    S, today, bands, classes, maxGPA, ledger: L, chron, transcript, ipRows, remRows, terms, activeTerms: active, assessments: asRows, dueList, tracker,
+    S, today, bands, classes, maxGPA, ledger: L, chron, transcript, ipRows, remRows, terms, activeTerms: active, assessments: asRows, dueList, tracker, targetPlans,
     gradeDist, categories, years, types, disciplines, scenarioGrid, unlinked: UNLINKED, weightIssues,
     m: {
       WAM, GPA, CP_COUNTED: CPC, QP, GPC, CP_DONE, SUBJ_DONE, SUBJ_TOTAL, SUBJ_IP, SUBJ_PLAN, CP_IP, CP_PLANNED, CP_REMAIN, CP_TO_WAM, FINAL_CP,

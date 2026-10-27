@@ -24,6 +24,7 @@ export default {
 
     const groupHTML = g => {
       const t = trackerBy.get(g.code);
+      const plan = E.targetPlans.get(g.code);
       const logged = items.filter(a => a.code === g.code).reduce((s, a) => s + a.wgt, 0);
       return html`
       <section class="card mt">
@@ -31,11 +32,13 @@ export default {
           <h3>${g.code || 'Items without a subject code'}${g.row ? html` <span class="muted" style="font-weight:500">· ${g.row.name}</span>` : ''}</h3>
           ${g.row ? chip(g.row.status || 'No status', statusKind(g.row.status)) : g.code ? chip('⚠ Not in Subjects', 'warning') : ''}
           <div class="actions">
+            ${g.row ? html`<label class="target-in" title="The final mark you want in this subject"><span>Target mark</span><input class="cell n" data-bind="sub:${g.row.id}:target" data-type="num" value="${state.subjects[g.row.i]?.target ?? ''}" placeholder="e.g. ${fmt(S.hdThr, 0)}" inputmode="decimal" aria-label="Target mark for ${g.code}"></label>` : ''}
             ${g.code && !g.row ? html`<button class="btn sm" data-action="link" data-id="${g.code}">${icon('plus', 15)}Add ${g.code} to Subjects</button>` : ''}
             <button class="btn sm" data-action="add" data-id="${g.code}">${icon('plus', 15)}Add item</button>
           </div>
           <span class="sub">${g.row ? html`Weight logged ${fmt(logged, 0)}%${logged > 100.01 ? ' ⚠ over 100%' : ''}${t ? html` · graded ${fmt(t.graded, 0)}% · mark so far <b class="ink2">${t.sofar === '' ? '—' : fmt(t.sofar, 1)}</b>${t.remaining > 0 ? html` · needs <b class="ink2">${fmt(t.needHD, 1)}%</b> on the remaining ${fmt(t.remaining, 0)}% for an HD` : ''}` : ''}` : ''}</span>
         </div>
+        ${plan ? targetPanel(plan) : ''}
         <div class="card-body flush tbl-wrap"><table class="tbl edit as-tbl">
           <colgroup>${g.code ? '' : html`<col style="width:110px">`}<col style="width:24%"><col style="width:124px"><col style="width:76px"><col style="width:70px"><col style="width:70px"><col style="width:74px"><col style="width:76px"><col style="width:62px"><col style="width:148px"><col style="width:132px"><col style="width:80px"><col><col style="width:44px"></colgroup>
           <thead><tr>${g.code ? '' : html`<th>Code</th>`}<th>Assessment</th><th>Type</th><th class="n">Weight %</th><th class="n">Score</th><th class="n">Out of</th><th class="n">Percent</th><th class="n">Weighted</th><th class="c">Grade</th><th>Due</th><th>Status</th><th title="Estimate? Yes = score is a guess · No = final · Auto = treat a scored item dated in the future as an estimate">Est?</th><th>Comment</th><th></th></tr></thead>
@@ -81,10 +84,11 @@ export default {
     <div class="section-title"><h2>Subject progress &amp; HD tracker</h2><p>What you need on what's left · targets come from your grade bands in Settings</p></div>
     <section class="card">
       ${E.tracker.length ? html`<div class="tbl-wrap"><table class="tbl">
-        <thead><tr><th>Code</th><th>Subject</th><th class="n">Wgt logged</th><th class="n">Wgt graded</th><th class="n">Mark so far</th><th class="n">Wgt remaining</th><th class="n">Needed · HD ${fmt(S.hdThr, 0)}</th><th class="n">Needed · D ${fmt(S.distThr, 0)}</th><th class="n">Needed · C ${fmt(S.creditThr, 0)}</th><th>Status</th></tr></thead>
+        <thead><tr><th>Code</th><th>Subject</th><th class="n">Wgt logged</th><th class="n">Wgt graded</th><th class="n">Mark so far</th><th class="n">Wgt remaining</th><th class="n">Needed · HD ${fmt(S.hdThr, 0)}</th><th class="n">Needed · D ${fmt(S.distThr, 0)}</th><th class="n">Needed · C ${fmt(S.creditThr, 0)}</th><th class="n">Needed · your target</th><th>Status</th></tr></thead>
         <tbody>${E.tracker.map(t => html`<tr><td class="code-cell">${t.code}</td><td>${t.name}</td><td class="n">${fmt(t.logged, 0)}%</td><td class="n">${fmt(t.graded, 0)}%</td>
           <td class="n strong">${t.sofar === '' ? '—' : fmt(t.sofar, 2)}</td><td class="n">${fmt(t.remaining, 0)}%</td>
           ${[t.needHD, t.needD, t.needC].map(v => html`<td class="n">${v === '' ? '—' : html`<span style="color:${v > 100 ? 'var(--critical)' : v <= S.passMark ? 'var(--good)' : 'inherit'}">${fmt(v, 1)}%</span>`}</td>`)}
+          <td class="n">${t.target === '' ? html`<span class="muted">set on the card</span>` : t.needT === '' || t.needT <= 0 ? html`<span style="color:var(--good)">✅ ${fmt(t.target, 0)} secured</span>` : html`<span style="color:${t.needT > 100 ? 'var(--critical)' : 'inherit'}">${fmt(t.needT, 1)}% <small class="muted">for ${fmt(t.target, 0)}</small></span>`}</td>
           <td>${chip(t.statusText, t.kind)}</td></tr>`)}</tbody></table></div>
         <p class="note" style="padding:0 18px 16px">'Needed' assumes the ungraded weight is whatever's left to reach 100%.</p>`
         : html`<div class="empty"><b>No subjects in progress</b>Mark a subject In Progress on the Subjects page and it appears here.</div>`}
@@ -110,6 +114,21 @@ export default {
     },
   },
 };
+
+// What the remaining assessments need to land the subject's target mark.
+function targetPanel(p) {
+  const showMath = !p.done && p.gap > 0 && p.remW > 0;
+  return html`<div class="target-plan tp-${p.kind}" role="status" aria-live="polite">
+    <div class="tp-head">
+      <span class="tp-goal"><b>${fmt(p.target, 1)}</b>${p.grade ? html` <span class="muted">${p.grade}</span>` : ''}<small>target</small></span>
+      <div class="tp-text"><b>${p.text}</b>
+        ${showMath ? html`<span>Banked <b>${fmt(p.banked, 1)}</b> marks from ${fmt(p.gradedW, 0)}% graded · need <b>${fmt(p.gap, 1)}</b> more from the remaining ${fmt(p.remW, 0)}%</span>` : ''}</div>
+    </div>
+    ${showMath ? html`<div class="tp-bar" aria-hidden="true"><span class="tp-banked" style="width:${Math.min(100, p.banked)}%"></span><span class="tp-need" style="width:${Math.min(100 - Math.min(100, p.banked), p.gap)}%"></span><i style="left:${Math.min(100, p.target)}%"></i></div>` : ''}
+    ${p.items.length ? html`<ul class="tp-items">${p.items.map(it => html`<li><span>${it.name} <span class="muted">(${fmt(it.weight, 0)}%)</span></span><b>${it.score !== '' ? `${fmt(it.score, 1)} / ${fmt(it.outOf, 0)}` : `${fmt(it.marks, 1)} of ${fmt(it.weight, 0)} marks`}</b></li>`)}
+      ${p.unlogged > 0.01 ? html`<li class="muted"><span>Weight not logged yet (${fmt(p.unlogged, 0)}%)</span><b>${fmt(p.unlogged * p.need / 100, 1)} of ${fmt(p.unlogged, 0)} marks</b></li>` : ''}</ul>` : ''}
+  </div>`;
+}
 
 function addItem(ctx, code) {
   ctx.update(s => { s.assessments.push({ id: ctx.uid(), code: cleanCode(code), name: '', type: 'Assignment', weight: '', score: '', outOf: '', due: '', comment: '', est: '' }); });

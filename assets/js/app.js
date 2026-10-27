@@ -1,6 +1,6 @@
 import { compute, num, cleanCode } from './engine.js';
 import { loadState, saveState, normaliseState, defaultState, sampleState, storageAvailable, clearStored, uid } from './state.js';
-import { html, icon, toast, confirmDialog } from './ui.js';
+import { html, icon, toast, confirmDialog, openModal } from './ui.js';
 import SUBJECTS from '../data/subjects.js';
 import * as exporter from './export.js';
 
@@ -151,13 +151,48 @@ export function render() {
     const ctx = makeCtx();
     document.getElementById('page-title').textContent = v.title;
     document.getElementById('page-sub').textContent = (v.subtitle && v.subtitle(ctx)) || headline();
+    const entering = route !== shownRoute;
+    shownRoute = route;
+    viewEl().classList.remove('enter');
     viewEl().innerHTML = v.render(ctx).s;
+    if (entering) playEntrance(viewEl());
     v.mount && v.mount(viewEl(), ctx);
     mountCharts();
     renderNav();
     window.scrollTo(0, scrollY);
     restoreFocus(focus);
   }, 0);
+}
+
+// ---------- entrance motion: plays when a page opens, never on the re-renders that follow typing ----------
+let shownRoute = null, enterTimer = 0;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+function playEntrance(root) {
+  if (reduceMotion.matches) return;
+  const parts = root.querySelectorAll(':scope > :not(.grid):not(.kpis):not(datalist), :scope > .grid > *, :scope > .kpis > *');
+  parts.forEach((el, i) => { el.classList.add('a-in'); el.style.setProperty('--i', Math.min(i, 12)); });
+  void root.offsetWidth; // restart the animation when moving between pages
+  root.classList.add('enter');
+  clearTimeout(enterTimer);
+  enterTimer = setTimeout(() => root.classList.remove('enter'), 1400);
+  root.querySelectorAll('.kpi .value').forEach(countUp); // not the printable summary, which can print mid-count
+}
+// Counts a card's headline number up from zero. A timer puts the exact final text back even if the browser pauses animation frames.
+function countUp(el) {
+  const node = [...el.childNodes].find(n => n.nodeType === 3 && /\d/.test(n.nodeValue));
+  const m = node && node.nodeValue.match(/^(\s*)(\d[\d,]*(?:\.\d+)?)([\s\S]*)$/);
+  if (!m) return;
+  const final = node.nodeValue, target = Number(m[2].replace(/,/g, '')), dec = (m[2].split('.')[1] || '').length, grouping = m[2].includes(',');
+  const t0 = performance.now(), dur = 900;
+  let done = false;
+  const step = now => {
+    if (done) return;
+    const k = Math.min(1, (now - t0) / dur), eased = 1 - (1 - k) ** 3;
+    node.nodeValue = m[1] + (target * eased).toLocaleString('en-AU', { minimumFractionDigits: dec, maximumFractionDigits: dec, useGrouping: grouping }) + m[3];
+    if (k < 1 && node.isConnected) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  setTimeout(() => { done = true; node.nodeValue = final; }, dur + 60);
 }
 function headline() {
   const s = state.settings;
@@ -205,7 +240,7 @@ function onRoute() {
   render();
   window.scrollTo(0, 0);
 }
-window.addEventListener('hashchange', onRoute);
+window.addEventListener('hashchange', () => (location.hash.startsWith('#sync=') ? receiveTransfer() : onRoute()));
 
 // ---------- global event delegation ----------
 const view = viewEl();
@@ -253,7 +288,7 @@ export function blankSubject(s) {
 document.getElementById('menu-btn').innerHTML = icon('menu').s;
 document.getElementById('menu-btn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
 document.addEventListener('click', e => { if (document.body.classList.contains('nav-open') && !e.target.closest('.side') && !e.target.closest('#menu-btn')) document.body.classList.remove('nav-open'); });
-document.getElementById('btn-import').innerHTML = html`${icon('upload')}<span class="lbl">Import MySR PDF</span>`.s;
+document.getElementById('btn-import').innerHTML = html`${icon('upload')}<span class="lbl">Import from MySR</span>`.s;
 document.getElementById('btn-import').addEventListener('click', () => openImport());
 document.getElementById('btn-export').innerHTML = html`${icon('download')}<span class="lbl">Export</span>`.s;
 document.getElementById('btn-theme').addEventListener('click', () => {
@@ -269,6 +304,7 @@ function closeMenu() { menu.classList.remove('open'); document.getElementById('b
 document.getElementById('export-list').innerHTML = html`
   <button data-x="json" role="menuitem">${icon('shield')}<span>Back up everything<small>JSON file you can restore later</small></span></button>
   <button data-x="restore" role="menuitem">${icon('refresh')}<span>Restore from backup<small>Load a JSON backup file</small></span></button>
+  <button data-x="link" role="menuitem">${icon('upload')}<span>Transfer link<small>Open your data on another device</small></span></button>
   <hr>
   <button data-x="xlsx" role="menuitem">${icon('file')}<span>Excel workbook (.xlsx)<small>Subjects, assessments, terms, summary</small></span></button>
   <button data-x="csv-subjects" role="menuitem">${icon('book')}<span>Subjects (.csv)</span></button>
@@ -293,6 +329,7 @@ export function runExport(kind) {
   try {
     if (kind === 'json') exporter.exportJSON(state);
     else if (kind === 'restore') document.getElementById('file-json').click();
+    else if (kind === 'link') showTransferLink();
     else if (kind === 'xlsx') exporter.exportXLSX(state, E);
     else if (kind === 'csv-subjects') exporter.exportSubjectsCSV(E);
     else if (kind === 'csv-assess') exporter.exportAssessmentsCSV(E);
@@ -319,6 +356,39 @@ document.getElementById('file-json').addEventListener('change', async e => {
   }
 });
 
+// ---------- transfer link ----------
+async function showTransferLink() {
+  const link = await exporter.makeTransferLink(state);
+  const body = document.createElement('div');
+  body.innerHTML = html`
+    <p class="lede">Open this link on your phone or another computer to load your ${state.subjects.length} subject(s) and ${state.assessments.length} assessment item(s) there. Nothing is uploaded: the data travels inside the link itself.</p>
+    <textarea class="input mt" id="xfer-link" rows="4" readonly aria-label="Transfer link" style="font:12px/1.45 ui-monospace,Consolas,monospace;word-break:break-all">${link}</textarea>
+    <p class="note mt-s">${icon('shield', 14)} Anyone who has this link can see your marks, so send it only to yourself (for example by email or a notes app). It is a snapshot: later changes need a new link. ${link.length.toLocaleString('en-AU')} characters.</p>`.s;
+  openModal({
+    title: 'Transfer link', body,
+    actions: [{ label: 'Close' }, {
+      label: 'Copy link', kind: 'primary', onClick: async () => {
+        try { await navigator.clipboard.writeText(link); toast('Link copied', 'good'); } catch (e) { body.querySelector('#xfer-link').select(); toast('Press Ctrl/⌘ C to copy the selected link'); return true; }
+        return false;
+      },
+    }],
+  });
+}
+async function receiveTransfer() {
+  const payload = location.hash.slice('#sync='.length);
+  window.history.replaceState(null, '', `${location.pathname}#/dashboard`); // keep the record out of the address bar and history (`history` here is the History view)
+  onRoute();
+  try {
+    const incoming = await exporter.readTransferLink(payload);
+    const msg = `It holds ${incoming.subjects.length} subject(s) and ${(incoming.assessments || []).length} assessment item(s).${state.subjects.length ? ` Everything currently saved in this browser (${state.subjects.length} subject(s)) will be replaced.` : ''}`;
+    if (!(await confirmDialog('Load data from this link?', msg, state.subjects.length ? 'Replace my data' : 'Load it', state.subjects.length > 0))) return;
+    replaceState(incoming);
+    toast('Data loaded from the transfer link.', 'good');
+  } catch (err) {
+    toast(err.message || 'That transfer link could not be read.', 'error');
+  }
+}
+
 let importer = null;
 export async function openImport() {
   try {
@@ -343,7 +413,7 @@ export async function resetAll() {
 applyTheme();
 recompute();
 if (!storageAvailable()) setTimeout(() => toast('This browser is blocking local storage, so changes will not be kept after you close the tab. Use Export → Back up.', 'error', 7000), 600);
-onRoute();
+if (location.hash.startsWith('#sync=')) receiveTransfer(); else onRoute();
 
 // Subject-code autocomplete, built once in idle time.
 (window.requestIdleCallback || (f => setTimeout(f, 800)))(() => {

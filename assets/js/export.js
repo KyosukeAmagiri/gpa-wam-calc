@@ -10,6 +10,34 @@ export function exportJSON(state) {
   toast('Backup downloaded. Keep it somewhere safe.', 'good');
 }
 
+// ---------- transfer link ----------
+// The whole record, deflated and base64url-encoded into the link's # part. Browsers never send the # part to a server.
+const toB64url = bytes => {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+const fromB64url = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+const pipe = (bytes, stream) => new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer().then(b => new Uint8Array(b));
+
+export async function makeTransferLink(state) {
+  let bytes = new TextEncoder().encode(JSON.stringify(state)), flag = 'j';
+  if (typeof CompressionStream === 'function') { bytes = await pipe(bytes, new CompressionStream('deflate-raw')); flag = 'z'; }
+  return `${location.origin}${location.pathname}#sync=${flag}${toB64url(bytes)}`;
+}
+
+export async function readTransferLink(payload) {
+  const flag = payload[0];
+  let bytes = fromB64url(payload.slice(1));
+  if (flag === 'z') {
+    if (typeof DecompressionStream !== 'function') throw new Error('This browser is too old to open transfer links. Use a JSON backup instead.');
+    bytes = await pipe(bytes, new DecompressionStream('deflate-raw'));
+  } else if (flag !== 'j') throw new Error('This transfer link is not complete.');
+  const state = JSON.parse(new TextDecoder().decode(bytes));
+  if (!state || typeof state !== 'object' || !Array.isArray(state.subjects)) throw new Error('This transfer link is not complete.');
+  return state;
+}
+
 const r2 = x => (typeof x === 'number' && Number.isFinite(x) ? Math.round(x * 100) / 100 : x);
 const blank = v => (v === '' || v === null || v === undefined ? '' : v);
 

@@ -117,6 +117,12 @@ export function openImportDialog(app) {
       ${icon('upload', 28)}<b>Drop your MySR results PDF here</b><br><span class="muted">or click to choose a file · PDF, PNG or JPG</span>
       <input type="file" id="pdf-input" accept="application/pdf,.pdf,image/png,image/jpeg,image/webp" hidden>
     </label>
+    <details class="paste" id="paste-box">
+      <summary>Or paste the text from MySR instead</summary>
+      <p class="note">On MySR's Subject Results page, select the whole results table (and the program summary under it), copy, and paste it here. Text copied from an unofficial transcript works too. Rows without credit points come in as 10 CP, and you can check every row before anything is saved.</p>
+      <textarea class="input" id="paste-text" rows="7" spellcheck="false" aria-label="Pasted MySR results" placeholder="2024   Autumn   ACCT1001   Accounting Information for Managers   D   78   10"></textarea>
+      <div class="row mt-s"><button class="btn primary sm" type="button" id="paste-go">${icon('list', 15)}Read pasted text</button><span class="muted" id="paste-msg" role="status" aria-live="polite"></span></div>
+    </details>
     <div class="progress hidden" id="prog"><div class="bar-o"><span></span></div><p></p></div>`.s;
   const modal = openModal({ title: 'Import results from MySR', body, wide: true });
   const drop = body.querySelector('#drop'), input = body.querySelector('#pdf-input'), prog = body.querySelector('#prog');
@@ -146,6 +152,16 @@ export function openImportDialog(app) {
     }
   };
   input.addEventListener('change', () => handle(input.files[0]));
+  body.querySelector('#paste-go').addEventListener('click', () => {
+    const text = body.querySelector('#paste-text').value;
+    const msg = body.querySelector('#paste-msg');
+    if (!text.trim()) { msg.textContent = 'Paste your results into the box first.'; return; }
+    const parsed = parseMySR(text, { known });
+    if (!parsed.rows.length) { msg.textContent = 'No subject codes with a year were found. Copy the whole results table, including the year and session columns.'; return; }
+    parsed.rows.forEach(r => { if (r.cp === '' && r.status !== 'Exempt') r.cp = 10; });
+    modal.close();
+    openReview(app, { text, source: 'paste', parsed });
+  });
   drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));

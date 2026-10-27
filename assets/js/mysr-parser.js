@@ -62,20 +62,30 @@ export function parseMySR(text, { known } = {}) {
   const from = startIdx >= 0 ? startIdx + 1 : 0;
   const to = endIdx >= 0 ? endIdx : lines.length;
 
-  // anchors: lines inside the table that hold a subject code
+  // anchors: lines inside the table that hold a subject code. Transcripts often put the year and session on a
+  // heading line above their rows, so those carry down to rows that lack their own.
   const anchors = [];
+  let ctxYear = null, ctxSeason = null;
+  const headings = new Set();
   for (let i = from; i < to; i++) {
     const toks = lines[i].trim().split(/\s+/);
+    let found = false;
     for (let k = 0; k < toks.length; k++) {
       let code = normaliseCode(toks[k], known);
       let span = 1;
       if (!code && k + 1 < toks.length && /^[A-Za-z0-9]{4}$/.test(toks[k]) && /^[0-9OoIl]{4}$/.test(toks[k + 1])) { code = normaliseCode(toks[k] + toks[k + 1], known); span = 2; }
       if (code) {
         const yearTok = toks.slice(0, k).find(x => /^(19|20)\d{2}$/.test(x));
-        if (!yearTok && startIdx < 0) continue;
-        anchors.push({ i, k, span, code, toks, yearTok });
+        if (!yearTok && startIdx < 0 && !ctxYear) continue;
+        anchors.push({ i, k, span, code, toks, yearTok, ctxYear, ctxSeason });
+        found = true;
         break;
       }
+    }
+    if (!found && !isJunkLine(lines[i])) {
+      const y = lines[i].match(/\b(19|20)\d{2}\b/), sz = toks.map(seasonOf).find(Boolean);
+      if (y && toks.length <= 6) { ctxYear = +y[0]; ctxSeason = sz || null; headings.add(i); }
+      else if (sz && toks.length <= 4) { ctxSeason = sz; headings.add(i); }
     }
   }
 
@@ -83,13 +93,21 @@ export function parseMySR(text, { known } = {}) {
     const nextI = n + 1 < anchors.length ? anchors[n + 1].i : to;
     // fix O/l slips inside short numbers ("1O" → "10") so marks and CP still read as numbers
     const after = a.toks.slice(a.k + a.span).filter(t => !TICKS.test(t)).map(t => (/^[\dOoIl]{2,3}$/.test(t) && /\d/.test(t) ? t.replace(/[OoIl]/g, c => L2D[c]) : t));
+    // transcripts often put the mark before the grade ("78 D 10", "71 C"): move the grade in front of the numbers, as MySR has it
+    const isN = t => /^\d{1,3}(\.\d+)?$/.test(t);
+    const gk = [after.length - 1, after.length - 2].find(k => k > 0 && KNOWN_GRADES.has(after[k]) && isN(after[k - 1]) && after.slice(k + 1).every(isN));
+    if (gk !== undefined) {
+      let s = gk;
+      while (s > 0 && isN(after[s - 1])) s--;
+      if (!(s > 0 && KNOWN_GRADES.has(after[s - 1]))) after.splice(s, 0, after.splice(gk, 1)[0]);
+    }
     while (after.length > 1 && isTickJunk(after[after.length - 1]) && /^\d{1,3}(\.\d+)?$/.test(after[after.length - 2])) after.pop();
-    let season = a.toks.slice(0, a.k).map(seasonOf).find(Boolean) || null;
-    let year = a.yearTok ? +a.yearTok : null;
+    let season = a.toks.slice(0, a.k).map(seasonOf).find(Boolean) || (a.yearTok ? null : a.ctxSeason) || null;
+    let year = a.yearTok ? +a.yearTok : a.ctxYear || null;
     const cont = [];
     for (let j = a.i + 1; j < nextI; j++) {
       const l = lines[j];
-      if (isJunkLine(l)) continue;
+      if (isJunkLine(l) || headings.has(j)) continue;
       const toks = l.trim().split(/\s+/).filter(t => !TICKS.test(t) && /[A-Za-z]/.test(t));
       const sIdx = toks.findIndex(t => seasonOf(t));
       if (sIdx >= 0 && !season) { season = seasonOf(toks[sIdx]); toks.splice(sIdx, 1); }
