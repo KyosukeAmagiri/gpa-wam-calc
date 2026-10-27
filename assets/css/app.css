@@ -143,6 +143,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .save-state.unsaved i { background: var(--dot-warn); }
 .content { padding: 26px 32px 64px; max-width: 1380px; width: 100%; }
 .page-foot { padding: 0 32px 28px; color: var(--muted); font-size: 12px; max-width: 1380px; }
+.page-foot .dedication { margin-top: 10px; font: italic 400 15px/1.4 var(--font-display); color: var(--ink-2); }
 
 /* ---------- buttons & inputs ---------- */
 .btn {
