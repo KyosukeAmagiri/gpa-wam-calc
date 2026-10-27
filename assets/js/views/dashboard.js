@@ -118,7 +118,7 @@ export default {
       </div>
     </section>
 
-    <section class="grid g2 mt">
+    <section class="grid g2 mt top">
       <div class="card">
         <div class="card-head"><h3>Projection odds</h3><span class="sub">Monte Carlo across ${mc.hasRemaining ? '2,003 seeded scenarios of your remaining subjects' : 'your record (nothing left to simulate)'}</span>
           <div class="actions"><button class="btn sm ghost" data-action="go" data-to="planner">Open planner ${icon('chevron', 14)}</button></div></div>
@@ -126,7 +126,9 @@ export default {
           ${odds(`Chance of ${E.classes[0] ? E.classes.find(c => /^first/i.test(c.name))?.name || E.classes[0].name : 'top class'}`, `WAM ≥ ${fmt(mc.FC_MIN, 1)}`, mc.pFC)}
           ${odds('Chance of University Medal GPA', `GPA ≥ ${fmt(S.uniMedalGPA, 2)}`, mc.pMedal)}
           ${odds('Chance of target WAM', `WAM ≥ ${fmt(S.targetWAM, 1)}`, mc.pTarget)}
+          ${odds('Chance of target GPA', `GPA ≥ ${fmt(S.targetGPA, 2)}`, mc.pTargetGPA)}
           ${stat('Median final WAM · 80% range', html`${fmt(mc.p50, 1)} <small>· ${fmt(mc.p10, 1)} to ${fmt(mc.p90, 1)}</small>`)}
+          ${stat('Median final GPA · 80% range', html`${fmt(mc.gp50, 2)} <small>· ${fmt(mc.gp10, 2)} to ${fmt(mc.gp90, 2)}</small>`)}
         </div>
       </div>
       <div class="card">
