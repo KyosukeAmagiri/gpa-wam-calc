@@ -437,7 +437,7 @@ svg.chart .mark.hover { filter: brightness(1.12); }
 .menu-list hr { border: 0; border-top: 1px solid var(--line); margin: 5px 4px; }
 
 /* import */
-.drop { border: 1.5px dashed var(--line-strong); border-radius: 14px; padding: 30px 20px; text-align: center; background: var(--surface-2); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.drop { display: block; border: 1.5px dashed var(--line-strong); border-radius: 14px; padding: 30px 20px; text-align: center; background: var(--surface-2); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
 .drop:hover, .drop.over { border-color: var(--brand); background: var(--brand-50); }
 .drop .ico { margin: 0 auto 10px; color: var(--brand-ink); }
 .drop b { font-size: 15px; }
