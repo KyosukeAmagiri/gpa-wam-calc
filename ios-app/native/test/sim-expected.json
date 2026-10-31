@@ -1,0 +1,83 @@
+[
+ {
+  "kind": "subjects",
+  "changes": [
+   [
+    "ACCT3001",
+    85
+   ]
+  ],
+  "wam": 78.47058823529412,
+  "gpa": 5.882352941176471,
+  "cpToWAM": 70,
+  "needAvg": 83.71428571428571
+ },
+ {
+  "kind": "subjects",
+  "changes": [
+   [
+    "ACCT3001",
+    85
+   ],
+   [
+    "FINC3014",
+    70
+   ]
+  ],
+  "wam": 78,
+  "gpa": 5.833333333333333,
+  "cpToWAM": 60,
+  "needAvg": 86
+ },
+ {
+  "kind": "subjects",
+  "changes": [
+   [
+    "BUSM3001",
+    45
+   ]
+  ],
+  "wam": 76.11764705882354,
+  "gpa": 5.470588235294118,
+  "cpToWAM": 80,
+  "needAvg": 88.24999999999997
+ },
+ {
+  "kind": "subjects",
+  "changes": [
+   [
+    "ECON2002",
+    60
+   ]
+  ],
+  "wam": 76.1875,
+  "gpa": 5.625,
+  "cpToWAM": 80,
+  "needAvg": 87.625
+ },
+ {
+  "kind": "assessment",
+  "code": "ACCT3001",
+  "item": "Final exam",
+  "mark": 70,
+  "average": 75,
+  "wam": 77.82352941176471,
+  "gpa": 5.764705882352941,
+  "cpToWAM": 70,
+  "needAvg": 85.28571428571429
+ },
+ {
+  "kind": "average",
+  "average": 75,
+  "wam": 77.04166666666667,
+  "gpa": 5.875,
+  "cpToWAM": 0,
+  "needAvg": null
+ },
+ {
+  "kind": "needed",
+  "code": "ACCT3001",
+  "target": 78.5,
+  "mark": 85.49999999999991
+ }
+]

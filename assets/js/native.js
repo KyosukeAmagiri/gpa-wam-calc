@@ -52,6 +52,28 @@ export function widgetSummary(E, prefs = {}) {
       E.scanner.openCount && `Best lever: ${E.scanner.bestLever}`, E.scanner.openCount && `Biggest risk: ${E.scanner.topRisk}`,
     ].filter(Boolean).map(plain).filter(s => s && s !== '—') : [],
     persona: { name: E.S.studentName || '', ...siriProfile(prefs) },
+    sim: simData(E),
+  };
+}
+
+// Everything Siri needs to redo the engine's WAM and GPA maths for a what-if: the counted totals, the grade
+// bands and classifications, and each subject's credit points, current contribution and open assessments.
+function simData(E) {
+  const m = E.m;
+  return {
+    qp: num(m.QP, 4), cpc: m.CP_COUNTED, gpc: num(m.GPC, 4), cpToWAM: m.CP_TO_WAM, passMark: E.S.passMark,
+    bands: E.bands.map((b, i) => ({ min: b.min, max: b.max, grade: b.grade, gp: num(E.helpers.gpOf(i), 3) })),
+    classes: E.classes.map(c => ({ name: c.name, min: c.min })),
+    subjects: E.ledger.filter(r => r.code && num(r.cp) !== null).map(r => {
+      const t = r.status === 'In Progress' ? E.tracker.find(x => x.code === r.code) : null;
+      return {
+        code: r.code, name: r.name, cp: r.cp, status: r.status, mark: num(r.mark, 2), qp: num(r.qp, 4), cpc: r.cpc, gpc: num(r.gpc, 4), manual: r.markIn !== '',
+        ...(t ? {
+          contrib: num(t.contrib, 4), wdone: num(t.graded, 2), bonus: num(t.bonus, 4),
+          open: E.assessments.filter(a => a.code === r.code && a.name && !a.graded && a.type !== 'Bonus').map(a => ({ id: a.id, name: a.name, weight: num(a.weight) })),
+        } : {}),
+      };
+    }),
   };
 }
 
@@ -134,13 +156,21 @@ export async function forgetAssistant() {
   if (bridge) await bridge.forgetAssistant();
 }
 
-// Tapping a reminder opens the Assessments page; "Open the planner in GPA & WAM" (Siri) opens the page it names.
-export function initNative(go) {
+// Tapping a reminder opens the Assessments page; "Open the planner in GPA & WAM" (Siri) opens the page it names,
+// and "Try it in the GPA & WAM sandbox" hands over a what-if for onScenario to set up in the sandbox.
+export function initNative(go, onScenario) {
   const LN = nativePlugin('LocalNotifications');
   if (LN && LN.addListener) LN.addListener('localNotificationActionPerformed', ev => go((ev.notification.extra && ev.notification.extra.route) || 'assessments'));
   const bridge = nativePlugin('WidgetBridge');
   if (!bridge) return;
-  const takeRoute = () => bridge.takeRoute().then(r => { if (r && r.route) go(r.route); }).catch(() => {});
+  const takeRoute = () => bridge.takeRoute().then(r => {
+    if (!r || !r.route) return;
+    if (r.scenario === undefined || !onScenario) { go(r.route); return; }
+    let changes = [];
+    try { changes = JSON.parse(r.scenario); } catch (e) { /* an unreadable what-if still opens the sandbox */ }
+    onScenario(Array.isArray(changes) ? changes : [], r.route);
+  }).catch(() => {});
   takeRoute();
   document.addEventListener('visibilitychange', () => { if (!document.hidden) takeRoute(); });
+  window.addEventListener('gpawam-siri', takeRoute); // sent by the app when Siri leaves something while it is running
 }

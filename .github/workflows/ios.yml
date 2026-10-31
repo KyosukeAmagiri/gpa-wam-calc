@@ -84,8 +84,8 @@ jobs:
       - name: Check what Siri says
         run: |
           mkdir -p build
-          swiftc native/App/GradeData.swift native/test/main.swift -o build/siri-check
-          build/siri-check native/test/sample-summary.json
+          swiftc native/App/GradeData.swift native/App/Simulation.swift native/test/main.swift -o build/siri-check
+          build/siri-check native/test/sample-summary.json native/test/sim-expected.json
 
       - name: Build for iPhone (unsigned)
         run: |
@@ -103,7 +103,7 @@ jobs:
           ls "$app/PlugIns"
           # Siri only finds the intents if Xcode extracted their metadata into the app
           ls "$app/Metadata.appintents" || echo "WARNING: no App Intents metadata"
-          for intent in WAMIntent GPAIntent GradeSummaryIntent NextDueIntent SubjectIntent TargetIntent CoachIntent AskIntent OpenPageIntent; do
+          for intent in MetricIntent GradeSummaryIntent NextDueIntent SubjectIntent TargetIntent CoachIntent AskIntent OpenPageIntent WhatIfIntent AssessmentWhatIfIntent AverageWhatIfIntent MarkNeededIntent SandboxWhatIfIntent; do
             grep -rqa "$intent" "$app/Metadata.appintents" 2>/dev/null && echo "found $intent" || echo "WARNING: missing $intent"
           done
           /usr/libexec/PlistBuddy -c "Print :INAlternativeAppNames" "$app/Info.plist"

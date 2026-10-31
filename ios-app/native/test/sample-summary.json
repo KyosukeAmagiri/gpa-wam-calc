@@ -12,7 +12,7 @@
  "nextName": "Presentation",
  "nextDue": "2026-11-04",
  "dueSoon": 2,
- "updated": "2026-10-31T06:26:45.196Z",
+ "updated": "2026-10-31T06:44:16.717Z",
  "overdue": 0,
  "cpToWAM": 80,
  "needAvgWAM": 83.9,
@@ -208,5 +208,376 @@
   "name": "Alex Sample",
   "style": "encouraging",
   "about": "Aiming for honours. I work 20 hours a week."
+ },
+ "sim": {
+  "qp": 12490,
+  "cpc": 160,
+  "gpc": 930,
+  "cpToWAM": 80,
+  "passMark": 50,
+  "bands": [
+   {
+    "min": 0,
+    "max": 49.99,
+    "grade": "F",
+    "gp": 0
+   },
+   {
+    "min": 50,
+    "max": 64.99,
+    "grade": "P",
+    "gp": 4
+   },
+   {
+    "min": 65,
+    "max": 74.99,
+    "grade": "C",
+    "gp": 5
+   },
+   {
+    "min": 75,
+    "max": 84.99,
+    "grade": "D",
+    "gp": 6
+   },
+   {
+    "min": 85,
+    "max": 100,
+    "grade": "HD",
+    "gp": 7
+   }
+  ],
+  "classes": [
+   {
+    "name": "First Class",
+    "min": 80
+   },
+   {
+    "name": "Second Class Upper",
+    "min": 75
+   },
+   {
+    "name": "Second Class Lower",
+    "min": 70
+   },
+   {
+    "name": "Third Class",
+    "min": 65
+   },
+   {
+    "name": "Pass",
+    "min": 50
+   },
+   {
+    "name": "At Risk",
+    "min": 0
+   }
+  ],
+  "subjects": [
+   {
+    "code": "ACCT1001",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 78,
+    "qp": 780,
+    "cpc": 10,
+    "gpc": 60,
+    "manual": true
+   },
+   {
+    "code": "ECON1011",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 71,
+    "qp": 710,
+    "cpc": 10,
+    "gpc": 50,
+    "manual": true
+   },
+   {
+    "code": "BUSM1001",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 82,
+    "qp": 820,
+    "cpc": 10,
+    "gpc": 60,
+    "manual": true
+   },
+   {
+    "code": "MATH1030",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 88,
+    "qp": 880,
+    "cpc": 10,
+    "gpc": 70,
+    "manual": true
+   },
+   {
+    "code": "FINC2002",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 74,
+    "qp": 740,
+    "cpc": 10,
+    "gpc": 50,
+    "manual": true
+   },
+   {
+    "code": "BUSM1006",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 69,
+    "qp": 690,
+    "cpc": 10,
+    "gpc": 50,
+    "manual": true
+   },
+   {
+    "code": "ACCT1005",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 81,
+    "qp": 810,
+    "cpc": 10,
+    "gpc": 60,
+    "manual": true
+   },
+   {
+    "code": "LAWS1003",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 66,
+    "qp": 660,
+    "cpc": 10,
+    "gpc": 50,
+    "manual": true
+   },
+   {
+    "code": "ACCT2001",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 84,
+    "qp": 840,
+    "cpc": 10,
+    "gpc": 60,
+    "manual": true
+   },
+   {
+    "code": "FINC2003",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 77,
+    "qp": 770,
+    "cpc": 10,
+    "gpc": 60,
+    "manual": true
+   },
+   {
+    "code": "ECON2002",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 90,
+    "qp": 900,
+    "cpc": 10,
+    "gpc": 70,
+    "manual": true
+   },
+   {
+    "code": "BUSM2004",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 73,
+    "qp": 730,
+    "cpc": 10,
+    "gpc": 50,
+    "manual": true
+   },
+   {
+    "code": "ACCT2005",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 86,
+    "qp": 860,
+    "cpc": 10,
+    "gpc": 70,
+    "manual": true
+   },
+   {
+    "code": "FINC3004",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 79,
+    "qp": 790,
+    "cpc": 10,
+    "gpc": 60,
+    "manual": true
+   },
+   {
+    "code": "BUSM2005",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 68,
+    "qp": 680,
+    "cpc": 10,
+    "gpc": 50,
+    "manual": true
+   },
+   {
+    "code": "ECON1006",
+    "name": "",
+    "cp": 10,
+    "status": "Completed",
+    "mark": 83,
+    "qp": 830,
+    "cpc": 10,
+    "gpc": 60,
+    "manual": true
+   },
+   {
+    "code": "ACCT3001",
+    "name": "",
+    "cp": 10,
+    "status": "In Progress",
+    "mark": 80,
+    "qp": 0,
+    "cpc": 0,
+    "gpc": 0,
+    "manual": false,
+    "contrib": 32,
+    "wdone": 40,
+    "bonus": 0,
+    "open": [
+     {
+      "id": "hjxg3f8csl1",
+      "name": "Group project",
+      "weight": 20
+     },
+     {
+      "id": "jnwgoydcsl1",
+      "name": "Final exam",
+      "weight": 40
+     }
+    ]
+   },
+   {
+    "code": "ACCT3003",
+    "name": "",
+    "cp": 10,
+    "status": "In Progress",
+    "mark": 74,
+    "qp": 0,
+    "cpc": 0,
+    "gpc": 0,
+    "manual": false,
+    "contrib": 37,
+    "wdone": 50,
+    "bonus": 0,
+    "open": [
+     {
+      "id": "z1eb9bycsl1",
+      "name": "Final exam",
+      "weight": 50
+     }
+    ]
+   },
+   {
+    "code": "FINC3014",
+    "name": "",
+    "cp": 10,
+    "status": "In Progress",
+    "mark": 88.5,
+    "qp": 0,
+    "cpc": 0,
+    "gpc": 0,
+    "manual": false,
+    "contrib": 35,
+    "wdone": 40,
+    "bonus": 1,
+    "open": [
+     {
+      "id": "lu8w9cfcsl1",
+      "name": "Presentation",
+      "weight": 20
+     },
+     {
+      "id": "zgnk3kzcsl1",
+      "name": "Final exam",
+      "weight": 40
+     }
+    ]
+   },
+   {
+    "code": "BUSM3001",
+    "name": "",
+    "cp": 10,
+    "status": "Planned",
+    "mark": null,
+    "qp": 0,
+    "cpc": 0,
+    "gpc": 0,
+    "manual": false
+   },
+   {
+    "code": "ACCT3006",
+    "name": "",
+    "cp": 10,
+    "status": "Planned",
+    "mark": null,
+    "qp": 0,
+    "cpc": 0,
+    "gpc": 0,
+    "manual": false
+   },
+   {
+    "code": "ACCT3007",
+    "name": "",
+    "cp": 10,
+    "status": "Planned",
+    "mark": null,
+    "qp": 0,
+    "cpc": 0,
+    "gpc": 0,
+    "manual": false
+   },
+   {
+    "code": "FINC3002",
+    "name": "",
+    "cp": 10,
+    "status": "Planned",
+    "mark": null,
+    "qp": 0,
+    "cpc": 0,
+    "gpc": 0,
+    "manual": false
+   },
+   {
+    "code": "BUSM3002",
+    "name": "",
+    "cp": 10,
+    "status": "Planned",
+    "mark": null,
+    "qp": 0,
+    "cpc": 0,
+    "gpc": 0,
+    "manual": false
+   }
+  ]
  }
 }

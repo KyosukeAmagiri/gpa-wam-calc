@@ -7,7 +7,7 @@ app = project.targets.find { |t| t.name == 'App' } or abort('App target not foun
 app_group = project.main_group.find_subpath('App', false) or abort('App group not found')
 
 # 1. The bridge plugin, the view controller that registers it, the Siri intents and the app group entitlement.
-%w[WidgetBridgePlugin.swift MainViewController.swift GradeData.swift GradeIntents.swift].each do |name|
+%w[WidgetBridgePlugin.swift MainViewController.swift GradeData.swift Simulation.swift GradeIntents.swift].each do |name|
   app.add_file_references([app_group.new_reference(name)])
 end
 app_group.new_reference('App.entitlements')

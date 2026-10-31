@@ -317,7 +317,7 @@ export function blankSubject(s) {
 document.getElementById('menu-btn').innerHTML = icon('menu').s;
 document.getElementById('menu-btn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
 enableMenuGestures();
-initNative(r => go(r));
+initNative(r => go(r), (changes, r) => runSiriScenario(changes, r));
 document.addEventListener('click', e => { if (document.body.classList.contains('nav-open') && !e.target.closest('.side') && !e.target.closest('#menu-btn')) document.body.classList.remove('nav-open'); });
 document.getElementById('btn-import').innerHTML = html`${icon('upload')}<span class="lbl">Import from MySR</span>`.s;
 document.getElementById('btn-import').addEventListener('click', () => openImport());
@@ -392,12 +392,34 @@ document.getElementById('file-json').addEventListener('change', async e => {
 // ---------- sandbox: try changes against a frozen copy of the saved record, then keep or discard them ----------
 let sandbox = null; // { base: saved state, baseM: its metrics }
 const sandboxChanged = () => sandbox && JSON.stringify({ ...state, updatedAt: 0 }) !== JSON.stringify({ ...sandbox.base, updatedAt: 0 });
-function enterSandbox() {
+function enterSandbox(quiet = false) {
   flushSave();
   sandbox = { base: JSON.parse(JSON.stringify(state)), baseM: E.m };
   persist();
   render();
-  toast('Sandbox on: change anything you like. Nothing is saved until you choose Keep changes.');
+  if (!quiet) toast('Sandbox on: change anything you like. Nothing is saved until you choose Keep changes.');
+}
+// A what-if from Siri ("Try it in the GPA & WAM sandbox"): finish subjects or mark assessments in a sandbox copy.
+function runSiriScenario(changes, route) {
+  if (!sandbox) enterSandbox(true);
+  const pass = E.S.passMark, applied = [];
+  update(st => {
+    for (const c of changes) {
+      const mark = Number(c.mark);
+      if (!Number.isFinite(mark)) continue;
+      if (c.kind === 'assessment') {
+        const a = st.assessments.find(x => x.id === c.id);
+        if (a) { a.score = mark; a.outOf = 100; applied.push(c.label); }
+      } else {
+        const rows = st.subjects.filter(x => cleanCode(x.code) === c.code);
+        const r = rows.find(x => x.status !== 'Completed' && x.status !== 'Failed') || rows[rows.length - 1];
+        if (r) { r.mark = mark; r.status = mark >= pass ? 'Completed' : 'Failed'; applied.push(c.label); }
+      }
+    }
+  }, { rerender: false });
+  go(route || 'dashboard');
+  toast(applied.length ? `Siri's what-if is in the sandbox: ${applied.join(', ')}. Nothing is saved unless you choose Keep changes.`
+    : 'Sandbox on: change anything you like. Nothing is saved until you choose Keep changes.', undefined, 7000);
 }
 async function leaveSandbox(keep) {
   if (!sandbox) return;

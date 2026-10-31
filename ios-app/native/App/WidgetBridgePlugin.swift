@@ -45,7 +45,10 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func takeRoute(_ call: CAPPluginCall) {
-        if let route = PendingRoute.take() { call.resolve(["route": route]) } else { call.resolve([:]) }
+        guard let pending = PendingRoute.take() else { call.resolve([:]); return }
+        var out: [String: Any] = ["route": pending.route]
+        if let scenario = pending.scenario { out["scenario"] = scenario }
+        call.resolve(out)
     }
 
     @objc func forgetAssistant(_ call: CAPPluginCall) {
