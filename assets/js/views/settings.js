@@ -2,7 +2,8 @@ import { html, icon, fmt, fmtPct, chip, toast, confirmDialog, isNativeApp } from
 import { setReminders, nativeStatus, REMINDER_OPTIONS, reminderPlan, SIRI_STYLES, siriProfile, forgetAssistant } from '../native.js';
 
 const SIRI_EXAMPLES = ["What's my WAM in GPA & WAM", "What's due next in GPA & WAM", "What do I need in [subject] in GPA & WAM",
-  'Am I on track in GPA & WAM', 'Coach me with GPA & WAM', 'Ask GPA & WAM a question', 'Open the planner in GPA & WAM'];
+  'Am I on track in GPA & WAM', 'Run a what-if in GPA & WAM', 'Try it in the GPA & WAM sandbox', 'Coach me with GPA & WAM',
+  'Ask GPA & WAM a question, then: what if I get 85 in Accounting?', 'Open the planner in GPA & WAM'];
 import { DEFAULT_BANDS, DEFAULT_CLASSES } from '../state.js';
 
 const field = (label, bind, value, { type = 'text', hint = '', placeholder = '', mode = '' } = {}) => html`

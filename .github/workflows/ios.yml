@@ -61,10 +61,10 @@ jobs:
         run: |
           plist=ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'GPA & WAM'" "$plist" || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string 'GPA & WAM'" "$plist"
-          # other names Siri accepts for the app, since "GPA & WAM" is awkward to say
+          # other names Siri accepts for the app, since "GPA & WAM" is awkward to say (iOS refuses to install with more than 3)
           /usr/libexec/PlistBuddy -c "Add :INAlternativeAppNames array" "$plist"
           i=0
-          for alt in "GPA and WAM|G P A and wham" "WAM Calculator|wham calculator" "GPA Calculator|G P A calculator" "My Grades|my grades"; do
+          for alt in "GPA and WAM|G P A and wham" "WAM Calculator|wham calculator" "GPA Calculator|G P A calculator"; do
             /usr/libexec/PlistBuddy -c "Add :INAlternativeAppNames:$i dict" \
               -c "Add :INAlternativeAppNames:$i:INAlternativeAppName string '${alt%%|*}'" \
               -c "Add :INAlternativeAppNames:$i:INAlternativeAppNamePronunciationHint string '${alt##*|}'" "$plist"

@@ -164,7 +164,7 @@ extension GradeSummary {
     private var noSim: SimResult { SimResult(text: "Open GPA & WAM once so Siri has your latest record to simulate with.", title: "What-if") }
 
     private func gradePhrase(_ sim: SimData, _ mark: Double) -> String {
-        sim.band(mark).map { b in " (\(b.grade == "HD" ? "an HD" : "a \(b.grade)"))" } ?? ""
+        sim.band(mark).map { b in " (\(withArticle(b.grade)))" } ?? ""
     }
 
     private func notFound(_ sim: SimData, _ query: String) -> SimResult {
@@ -176,7 +176,7 @@ extension GradeSummary {
     /// How the record moves from `before` to `after`: WAM, GPA, classification and the average still needed.
     private func consequences(_ sim: SimData, _ before: SimTotals, _ after: SimTotals) -> String {
         let parts = [change("WAM", before.wam, after.wam, places: 2), change("GPA", before.gpa, after.gpa, places: 3)].compactMap { $0 }
-        var out = parts.isEmpty ? "" : sentenceCase(parts.joined(separator: " and ")) + "."
+        var out = parts.isEmpty ? "" : sentenceCase(parts.joined(separator: ", and ")) + "."
         if let a = after.wam, let now = sim.className(a) {
             let was = before.wam.flatMap { sim.className($0) }
             out += was == nil || was == now ? " You'd be in \(now)." : " That moves you from \(was!) to \(now)."
@@ -274,7 +274,7 @@ extension GradeSummary {
         }
         if let target = gpa ?? (wam == nil ? targetGPA : nil) {
             if let b = sim.bandNeeded(in: s, forGPA: target) {
-                lines.append(b.min <= sim.pass - 1e-9 ? "Your GPA stays at \(target.short) or above whatever you get in \(s.code)." : "For a GPA of \(target.short), you need at least \(b.grade == "HD" ? "an HD" : "a \(b.grade)") (\(b.min.short) or more) in \(s.code).")
+                lines.append(b.min <= sim.pass - 1e-9 ? "Your GPA stays at \(target.short) or above whatever you get in \(s.code)." : "For a GPA of \(target.short), you need at least \(withArticle(b.grade)) (\(b.min.short) or more) in \(s.code).")
             } else {
                 lines.append("Even an HD in \(s.code) won't lift your GPA to \(target.short) on its own.")
             }

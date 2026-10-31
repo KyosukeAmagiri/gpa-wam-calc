@@ -43,7 +43,11 @@ struct GradeSummary: Codable {
 private let gradeNames = ["HD": "High Distinction", "D": "Distinction", "C": "Credit", "P": "Pass", "F": "Fail"]
 
 extension Double {
-    func dp(_ places: Int) -> String { String(format: "%.\(places)f", self) }
+    /// Rounds halves up like the web app (5.8125 → 5.813), where printf alone would round to even.
+    func dp(_ places: Int) -> String {
+        let p = pow(10, Double(places))
+        return String(format: "%.\(places)f", (self * p).rounded() / p)
+    }
     /// 80 rather than 80.0, but 82.4 stays 82.4.
     var short: String { rounded() == self ? String(Int(self)) : dp(1) }
 }
@@ -58,6 +62,11 @@ private func article(_ word: String) -> String {
 }
 
 private func sentence(_ s: String) -> String { s.prefix(1).uppercased() + s.dropFirst() }
+
+/// "an HD", "an F", "a D": grade letters are read aloud, so the article follows the letter's sound.
+func withArticle(_ grade: String) -> String {
+    "AEFHILMNORSX".contains(grade.first ?? "x") ? "an \(grade)" : "a \(grade)"
+}
 
 private let isoDay: DateFormatter = {
     let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"; return f
