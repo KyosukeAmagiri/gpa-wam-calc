@@ -163,11 +163,13 @@ export const statusKind = s => ({ Completed: 'good', 'In Progress': 'info', Plan
 
 // True inside the iPhone app build, where the page runs in a native wrapper.
 export const isNativeApp = () => !!window.Capacitor?.isNativePlatform?.();
+// A native plugin's JavaScript proxy (Filesystem, Share, LocalNotifications, WidgetBridge), or undefined outside the app.
+export const nativePlugin = name => (isNativeApp() ? window.Capacitor.Plugins?.[name] || window.Capacitor.registerPlugin?.(name) : undefined);
 
 // Apps cannot download files, so the iPhone app writes the file to its cache and opens the share sheet
 // (Save to Files, AirDrop, Mail and so on) instead.
 async function shareNative(filename, blob) {
-  const { Filesystem, Share } = window.Capacitor.Plugins;
+  const Filesystem = nativePlugin('Filesystem'), Share = nativePlugin('Share');
   const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); });
   const { uri } = await Filesystem.writeFile({ path: filename, data, directory: 'CACHE' });
   await Share.share({ title: filename, files: [uri] });
@@ -175,7 +177,7 @@ async function shareNative(filename, blob) {
 
 export function download(filename, content, type = 'application/octet-stream') {
   const blob = content instanceof Blob ? content : new Blob([content], { type });
-  if (isNativeApp() && window.Capacitor.Plugins?.Filesystem && window.Capacitor.Plugins?.Share) {
+  if (nativePlugin('Filesystem') && nativePlugin('Share')) {
     shareNative(filename, blob).catch(err => { if (!/cancel/i.test(String(err && err.message))) toast(`Could not share ${filename}: ${err.message || err}`, 'error'); });
     return;
   }

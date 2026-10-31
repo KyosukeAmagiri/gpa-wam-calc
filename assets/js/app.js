@@ -4,6 +4,8 @@ import { html, icon, toast, confirmDialog, openModal, fmt, fmtSigned, isNativeAp
 import SUBJECTS from '../data/subjects.js';
 import * as exporter from './export.js';
 import { openPalette } from './palette.js';
+import { enableMenuGestures } from './gestures.js';
+import { syncNative, initNative } from './native.js';
 
 import dashboard from './views/dashboard.js';
 import subjects from './views/subjects.js';
@@ -178,6 +180,7 @@ export function render() {
     mountCharts();
     renderNav();
     renderSandbox();
+    if (!sandbox) syncNative(state, E); // the widget and reminders follow the saved record, not sandbox experiments
     window.scrollTo(0, scrollY);
     restoreFocus(focus);
   }, 0);
@@ -313,6 +316,8 @@ export function blankSubject(s) {
 // ---------- top bar ----------
 document.getElementById('menu-btn').innerHTML = icon('menu').s;
 document.getElementById('menu-btn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
+enableMenuGestures();
+initNative(r => go(r));
 document.addEventListener('click', e => { if (document.body.classList.contains('nav-open') && !e.target.closest('.side') && !e.target.closest('#menu-btn')) document.body.classList.remove('nav-open'); });
 document.getElementById('btn-import').innerHTML = html`${icon('upload')}<span class="lbl">Import from MySR</span>`.s;
 document.getElementById('btn-import').addEventListener('click', () => openImport());

@@ -497,6 +497,7 @@ svg.chart .mark.hover { filter: brightness(1.12); }
   .app { grid-template-columns: minmax(0, 1fr); }
   .side { position: fixed; left: 0; top: 0; bottom: 0; width: 272px; transform: translateX(-100%); transition: transform 0.22s ease; box-shadow: 20px 0 60px rgba(0, 0, 0, 0.3); }
   body.nav-open .side { transform: none; }
+  .side.dragging { transition: none; }
   body.nav-open::after { content: ''; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 25; }
   .topbar { padding: 10px 16px; }
   .topbar .menu-btn { display: inline-grid; }
@@ -573,6 +574,15 @@ svg.chart .mark.hover { filter: brightness(1.12); }
 @media (max-width: 640px) {
   .modal-foot, .modal-body:last-child { padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ---------- reminder plan (iPhone app settings) ---------- */
+.rem-plan { flex-wrap: wrap; }
+.rem-plan .v { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
+.rem-days { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.chip-toggle { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); border-radius: 99px; padding: 5px 11px; font-size: 12.5px; font-weight: 550; cursor: pointer; }
+.chip-toggle.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.rem-time { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.rem-time input { width: 118px; height: 32px; }
 
 /* ---------- command palette ---------- */
 @keyframes fade-in { from { opacity: 0; } }

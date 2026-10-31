@@ -1,4 +1,5 @@
-import { html, icon, fmt, fmtPct, chip, toast, confirmDialog } from '../ui.js';
+import { html, icon, fmt, fmtPct, chip, toast, confirmDialog, isNativeApp } from '../ui.js';
+import { setReminders, nativeStatus, REMINDER_OPTIONS, reminderPlan } from '../native.js';
 import { DEFAULT_BANDS, DEFAULT_CLASSES } from '../state.js';
 
 const field = (label, bind, value, { type = 'text', hint = '', placeholder = '', mode = '' } = {}) => html`
@@ -15,6 +16,17 @@ export default {
     const S = E.S;
     const m = E.m;
     return html`
+    ${isNativeApp() ? html`<section class="card" style="margin-bottom:18px">
+      <div class="card-head"><h3>iPhone app</h3><span class="sub">Reminders and the home-screen widget live on this phone only</span></div>
+      <div class="card-body stat-list">
+        <div class="r"><span class="k">Deadline reminders<br><small class="muted">For every ungraded assessment with a due date</small></span>
+          <span class="v"><button class="btn ${state.prefs.reminders ? 'primary' : ''} sm" data-action="reminders" aria-pressed="${state.prefs.reminders === true}">${state.prefs.reminders ? 'On' : 'Off'}</button></span></div>
+        <div class="r rem-plan"><span class="k">Remind me</span>
+          <span class="v"><span class="rem-days" role="group" aria-label="When to remind">${REMINDER_OPTIONS.map(([d, label]) => html`<button class="chip-toggle ${reminderPlan(state.prefs).days.includes(d) ? 'on' : ''}" data-action="rem-day" data-id="${d}" aria-pressed="${reminderPlan(state.prefs).days.includes(d)}">${label}</button>`)}</span>
+          <label class="rem-time">at <input class="input" type="time" id="rem-time" value="${reminderPlan(state.prefs).time}" aria-label="Reminder time"></label></span></div>
+        <div class="r"><span class="k">Notifications</span><span class="v" id="ns-notif">checking…</span></div>
+        <div class="r"><span class="k">Home-screen widget<br><small class="muted">Long-press the home screen, tap + (or Edit → Add Widget), then find GPA &amp; WAM</small></span><span class="v" id="ns-widget">checking…</span></div>
+      </div></section>` : ''}
     <section class="grid g2">
       <div class="card">
         <div class="card-head"><h3>Profile</h3><span class="sub">Shown on the dashboard header and the academic summary</span></div>
@@ -136,7 +148,30 @@ export default {
       </div>
     </section>`;
   },
+  mount(root, ctx) {
+    if (!isNativeApp()) return;
+    root.querySelector('#rem-time')?.addEventListener('change', e => { if (e.target.value) ctx.update(st => { st.prefs.reminderTime = e.target.value; }); });
+    nativeStatus().then(st => {
+      const n = root.querySelector('#ns-notif'), w = root.querySelector('#ns-widget');
+      if (n) n.textContent = st.notifications === 'granted' ? `Allowed · ${st.pending} scheduled` : st.notifications === 'denied' ? 'Blocked in iPhone Settings' : st.notifications === 'unavailable' ? 'Unavailable' : 'Not asked yet';
+      if (w) w.textContent = st.widget === 'connected' ? 'Connected' : st.widget === 'not shared' ? 'Re-sign the app with app groups to connect' : 'Unavailable';
+    });
+  },
   actions: {
+    'rem-day': (el, ctx) => {
+      const d = Number(el.dataset.id);
+      ctx.update(st => {
+        const days = reminderPlan(st.prefs).days;
+        st.prefs.reminderDays = (days.includes(d) ? days.filter(x => x !== d) : [...days, d]).sort((a, b) => b - a);
+      });
+    },
+    reminders: async (el, ctx) => {
+      const want = ctx.state.prefs.reminders !== true;
+      const ok = want ? await setReminders(true) : false;
+      if (want && !ok) toast('Reminders need notification permission. Turn it on in iPhone Settings → GPA & WAM → Notifications.', 'error', 6500);
+      ctx.update(s => { s.prefs.reminders = want && ok; });
+      if (ok) toast('Deadline reminders on.', 'good'); else if (!want) toast('Deadline reminders off.');
+    },
     'band-add': (el, ctx) => { ctx.update(s => { s.settings.bands.push({ min: '', max: '', grade: '', gp4: 0, gp7: 0, desc: '' }); }); },
     'band-del': (el, ctx) => { ctx.update(s => { s.settings.bands.splice(+el.dataset.id, 1); }); },
     'band-reset': async (el, ctx) => {

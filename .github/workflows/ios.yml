@@ -43,6 +43,16 @@ jobs:
           npx cap add ios
           npx cap sync ios
 
+      - name: Add the widget extension and bridge plugin
+        run: |
+          cp native/App/*.swift native/App/App.entitlements ios/App/App/
+          mkdir -p ios/App/GPAWAMWidget && cp native/Widget/* ios/App/GPAWAMWidget/
+          # the app's web view controller becomes MainViewController, which registers the WidgetBridge plugin
+          sed -i '' 's/customClass="CAPBridgeViewController" customModule="Capacitor"/customClass="MainViewController" customModule="App" customModuleProvider="target"/' ios/App/App/Base.lproj/Main.storyboard
+          grep -c 'customClass="MainViewController"' ios/App/App/Base.lproj/Main.storyboard
+          gem install xcodeproj --no-document || sudo gem install xcodeproj --no-document
+          ruby native/setup.rb
+
       - name: App name, icon and launch screen
         run: |
           plist=ios/App/App/Info.plist
@@ -65,12 +75,39 @@ jobs:
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 40
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          # ad-hoc signatures carry the app group entitlement into the .ipa; Sideloadly re-signs with your Apple ID
+          app=Payload/App.app
+          find "$app/Frameworks" -maxdepth 1 \( -name '*.framework' -o -name '*.dylib' \) -exec codesign --force --sign - {} \; 2>/dev/null || true
+          codesign --force --sign - --entitlements native/Widget/GPAWAMWidget.entitlements "$app/PlugIns/GPAWAMWidget.appex"
+          codesign --force --sign - --entitlements native/App/App.entitlements "$app"
+          codesign -d --entitlements - "$app/PlugIns/GPAWAMWidget.appex" 2>/dev/null | grep -c application-groups
+          ls "$app/PlugIns"
           zip -qry GPA-WAM.ipa Payload
           ls -la GPA-WAM.ipa
 
       - name: Run in the iPhone simulator and take a screenshot
         continue-on-error: true
         run: |
+          # simulator build only: a self-test opens Settings and prints what each native plugin reports
+          cat >> ios/App/App/public/index.html <<'HTML'
+          <script>
+          window.addEventListener('load', () => setTimeout(async () => {
+            location.hash = '#/settings';
+            const C = window.Capacitor, P = n => C.Plugins[n] || C.registerPlugin(n), out = ['SELF-TEST'];
+            const t = async (label, f) => { try { out.push(label + ': ' + JSON.stringify(await f())); } catch (e) { out.push(label + ' FAILED: ' + (e.message || e)); } };
+            await t('native', () => C.isNativePlatform());
+            await t('widget status', () => P('WidgetBridge').status());
+            await t('notifications', () => P('LocalNotifications').checkPermissions());
+            await t('pending', () => P('LocalNotifications').getPending().then(r => r.notifications.length));
+            await t('filesystem', () => P('Filesystem').writeFile({ path: 'selftest.txt', data: 'aGk=', directory: 'CACHE' }).then(r => !!r.uri));
+            await t('share', () => typeof P('Share').share);
+            const d = document.createElement('pre');
+            d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:999;background:#000;color:#3f3;font:13px monospace;padding:12px 12px 40px;white-space:pre-wrap;margin:0';
+            d.textContent = out.join(String.fromCharCode(10));
+            document.body.appendChild(d);
+          }, 5000));
+          </script>
+          HTML
           if [ -d ios/App/App.xcworkspace ]; then C="-workspace ios/App/App.xcworkspace"; else C="-project ios/App/App.xcodeproj"; fi
           xcodebuild $C -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath simbuild CODE_SIGNING_ALLOWED=NO build | tail -n 5
@@ -79,7 +116,7 @@ jobs:
           xcrun simctl bootstatus "$udid" -b
           xcrun simctl install "$udid" simbuild/Build/Products/Debug-iphonesimulator/App.app
           xcrun simctl launch "$udid" com.kyosukeamagiri.gpawam
-          sleep 20
+          sleep 28
           xcrun simctl io "$udid" screenshot simulator.png
 
       - uses: actions/upload-artifact@v4
