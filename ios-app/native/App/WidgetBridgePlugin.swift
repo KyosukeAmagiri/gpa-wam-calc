@@ -1,18 +1,22 @@
 import Foundation
 import Capacitor
 import WidgetKit
+import AppIntents
 
-/// Hands the calculator's summary from the web page to the home-screen widget through the shared app group.
+/// Hands the calculator's summary from the web page to the home-screen widget and to Siri through the shared app group,
+/// and passes pages Siri asks for back to the web page.
 @objc(WidgetBridgePlugin)
 public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "WidgetBridgePlugin"
     public let jsName = "WidgetBridge"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "takeRoute", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "forgetAssistant", returnType: CAPPluginReturnPromise)
     ]
 
-    static let group = "group.com.kyosukeamagiri.gpawam"
+    static let group = GradeSummary.appGroup
 
     /// True when the app group container exists, so the widget can actually read what the app writes.
     private var shared: Bool {
@@ -30,11 +34,22 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         }
         defaults.set(summary, forKey: "summary")
         WidgetCenter.shared.reloadAllTimelines()
-        call.resolve(["ok": true, "shared": shared])
+        // lets Siri recognise subject names in phrases like "What's my mark in Accounting"
+        GPAWAMShortcuts.updateAppShortcutParameters()
+        call.resolve(["ok": true, "shared": shared, "readable": GradeSummary.decode(summary) != nil])
     }
 
     @objc func status(_ call: CAPPluginCall) {
         let stored = UserDefaults(suiteName: Self.group)?.string(forKey: "summary")
-        call.resolve(["shared": shared, "hasSummary": stored != nil])
+        call.resolve(["shared": shared, "hasSummary": stored != nil, "siriReadable": GradeSummary.load() != nil, "memory": AssistantMemory.count])
+    }
+
+    @objc func takeRoute(_ call: CAPPluginCall) {
+        if let route = PendingRoute.take() { call.resolve(["route": route]) } else { call.resolve([:]) }
+    }
+
+    @objc func forgetAssistant(_ call: CAPPluginCall) {
+        AssistantMemory.forget()
+        call.resolve(["ok": true])
     }
 }

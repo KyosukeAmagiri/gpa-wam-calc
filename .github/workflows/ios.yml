@@ -61,6 +61,15 @@ jobs:
         run: |
           plist=ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'GPA & WAM'" "$plist" || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string 'GPA & WAM'" "$plist"
+          # other names Siri accepts for the app, since "GPA & WAM" is awkward to say
+          /usr/libexec/PlistBuddy -c "Add :INAlternativeAppNames array" "$plist"
+          i=0
+          for alt in "GPA and WAM|G P A and wham" "WAM Calculator|wham calculator" "GPA Calculator|G P A calculator" "My Grades|my grades"; do
+            /usr/libexec/PlistBuddy -c "Add :INAlternativeAppNames:$i dict" \
+              -c "Add :INAlternativeAppNames:$i:INAlternativeAppName string '${alt%%|*}'" \
+              -c "Add :INAlternativeAppNames:$i:INAlternativeAppNamePronunciationHint string '${alt##*|}'" "$plist"
+            i=$((i+1))
+          done
           # replace every image in the icon and splash sets with ours, resized to each slot's size
           for f in ios/App/App/Assets.xcassets/AppIcon.appiconset/*.png; do
             w=$(sips -g pixelWidth "$f" | awk '/pixelWidth/ {print $2}')
@@ -71,6 +80,12 @@ jobs:
             sips -s format png -z "$w" "$w" resources/splash-2732.png --out "$f" >/dev/null
           done
           ls -la ios/App/App/Assets.xcassets/AppIcon.appiconset ios/App/App/Assets.xcassets/Splash.imageset
+
+      - name: Check what Siri says
+        run: |
+          mkdir -p build
+          swiftc native/App/GradeData.swift native/test/main.swift -o build/siri-check
+          build/siri-check native/test/sample-summary.json
 
       - name: Build for iPhone (unsigned)
         run: |
@@ -86,6 +101,12 @@ jobs:
           codesign --force --sign - --entitlements native/App/App.entitlements "$app"
           codesign -d --entitlements - "$app/PlugIns/GPAWAMWidget.appex" 2>/dev/null | grep -c application-groups
           ls "$app/PlugIns"
+          # Siri only finds the intents if Xcode extracted their metadata into the app
+          ls "$app/Metadata.appintents" || echo "WARNING: no App Intents metadata"
+          for intent in WAMIntent GPAIntent GradeSummaryIntent NextDueIntent SubjectIntent TargetIntent CoachIntent AskIntent OpenPageIntent; do
+            grep -rqa "$intent" "$app/Metadata.appintents" 2>/dev/null && echo "found $intent" || echo "WARNING: missing $intent"
+          done
+          /usr/libexec/PlistBuddy -c "Print :INAlternativeAppNames" "$app/Info.plist"
           zip -qry GPA-WAM.ipa Payload
           ls -la GPA-WAM.ipa
 
@@ -107,6 +128,9 @@ jobs:
             await t('nativePromise', () => typeof C.nativePromise);
             await t('widget update', () => P('WidgetBridge').update({ summary: JSON.stringify({ wam: 78.06, gpa: 5.813, maxGPA: 7, grade: 'D', classification: 'Test', cp: 160, totalCP: 240, targetWAM: 80, targetGPA: 6.3, nextCode: null, nextName: null, nextDue: null, dueSoon: 0 }) }));
             await t('widget status', () => P('WidgetBridge').status());
+            await t('siri route', () => P('WidgetBridge').takeRoute());
+            await t('siri forget', () => P('WidgetBridge').forgetAssistant());
+            await t('siri card', () => ['siri-style', 'siri-about', 'ns-siri', 'ns-memory'].map(id => id + '=' + (document.getElementById(id) ? (document.getElementById(id).value || document.getElementById(id).textContent) : 'missing')).join(' '));
             await t('notifications', () => P('LocalNotifications').checkPermissions());
             await t('pending', () => P('LocalNotifications').getPending().then(r => r.notifications.length));
             await t('filesystem', () => P('Filesystem').writeFile({ path: 'selftest.txt', data: 'aGk=', directory: 'CACHE' }).then(r => !!r.uri));

@@ -583,6 +583,13 @@ svg.chart .mark.hover { filter: brightness(1.12); }
 .chip-toggle.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .rem-time { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
 .rem-time input { width: 118px; height: 32px; }
+.siri-about, .siri-try, .siri-style { flex-wrap: wrap; }
+.siri-style .v { margin-left: auto; }
+#siri-style { min-width: 210px; }
+.siri-about .v { flex: 1 1 320px; }
+.siri-about textarea { width: 100%; min-height: 76px; }
+.siri-try .v { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; flex: 1 1 320px; }
+.siri-try .chip-toggle { cursor: default; font-weight: 500; }
 
 /* ---------- command palette ---------- */
 @keyframes fade-in { from { opacity: 0; } }

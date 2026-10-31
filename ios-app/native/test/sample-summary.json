@@ -1,0 +1,212 @@
+{
+ "wam": 78.06,
+ "gpa": 5.813,
+ "maxGPA": 7,
+ "grade": "D",
+ "classification": "Second Class Upper",
+ "cp": 160,
+ "totalCP": 240,
+ "targetWAM": 80,
+ "targetGPA": 6.3,
+ "nextCode": "FINC3014",
+ "nextName": "Presentation",
+ "nextDue": "2026-11-04",
+ "dueSoon": 2,
+ "updated": "2026-10-31T06:26:45.196Z",
+ "overdue": 0,
+ "cpToWAM": 80,
+ "needAvgWAM": 83.9,
+ "projWAM": 78.29,
+ "projGPA": 5.83,
+ "momentum": -2,
+ "pTarget": 0.009,
+ "pTargetGPA": 0,
+ "upcoming": [
+  {
+   "code": "FINC3014",
+   "name": "Presentation",
+   "due": "2026-11-04",
+   "weight": 20,
+   "days": 4
+  },
+  {
+   "code": "ACCT3001",
+   "name": "Group project",
+   "due": "2026-11-09",
+   "weight": 20,
+   "days": 9
+  },
+  {
+   "code": "ACCT3001",
+   "name": "Final exam",
+   "due": "2026-11-28",
+   "weight": 40,
+   "days": 28
+  },
+  {
+   "code": "ACCT3003",
+   "name": "Final exam",
+   "due": "2026-11-30",
+   "weight": 50,
+   "days": 30
+  },
+  {
+   "code": "FINC3014",
+   "name": "Final exam",
+   "due": "2026-12-02",
+   "weight": 40,
+   "days": 32
+  }
+ ],
+ "current": [
+  {
+   "code": "ACCT3001",
+   "name": "",
+   "sofar": 80,
+   "graded": 40,
+   "remaining": 60,
+   "needHD": 88.3,
+   "needD": 71.7,
+   "needC": 55,
+   "status": "Push for HD"
+  },
+  {
+   "code": "ACCT3003",
+   "name": "",
+   "sofar": 74,
+   "graded": 50,
+   "remaining": 50,
+   "needHD": 96,
+   "needD": 76,
+   "needC": 56,
+   "status": "Push for HD"
+  },
+  {
+   "code": "FINC3014",
+   "name": "",
+   "sofar": 88.5,
+   "graded": 40,
+   "remaining": 60,
+   "needHD": 81.7,
+   "needD": 65,
+   "needC": 48.3,
+   "status": "Push for HD"
+  }
+ ],
+ "done": [
+  {
+   "code": "ACCT1001",
+   "name": "",
+   "mark": 78,
+   "grade": "D"
+  },
+  {
+   "code": "ECON1011",
+   "name": "",
+   "mark": 71,
+   "grade": "C"
+  },
+  {
+   "code": "BUSM1001",
+   "name": "",
+   "mark": 82,
+   "grade": "D"
+  },
+  {
+   "code": "MATH1030",
+   "name": "",
+   "mark": 88,
+   "grade": "HD"
+  },
+  {
+   "code": "FINC2002",
+   "name": "",
+   "mark": 74,
+   "grade": "C"
+  },
+  {
+   "code": "BUSM1006",
+   "name": "",
+   "mark": 69,
+   "grade": "C"
+  },
+  {
+   "code": "ACCT1005",
+   "name": "",
+   "mark": 81,
+   "grade": "D"
+  },
+  {
+   "code": "LAWS1003",
+   "name": "",
+   "mark": 66,
+   "grade": "C"
+  },
+  {
+   "code": "ACCT2001",
+   "name": "",
+   "mark": 84,
+   "grade": "D"
+  },
+  {
+   "code": "FINC2003",
+   "name": "",
+   "mark": 77,
+   "grade": "D"
+  },
+  {
+   "code": "ECON2002",
+   "name": "",
+   "mark": 90,
+   "grade": "HD"
+  },
+  {
+   "code": "BUSM2004",
+   "name": "",
+   "mark": 73,
+   "grade": "C"
+  },
+  {
+   "code": "ACCT2005",
+   "name": "",
+   "mark": 86,
+   "grade": "HD"
+  },
+  {
+   "code": "FINC3004",
+   "name": "",
+   "mark": 79,
+   "grade": "D"
+  },
+  {
+   "code": "BUSM2005",
+   "name": "",
+   "mark": 68,
+   "grade": "C"
+  },
+  {
+   "code": "ECON1006",
+   "name": "",
+   "mark": 83,
+   "grade": "D"
+  }
+ ],
+ "insights": [
+  "Improving +0.6 WAM per term",
+  "WAM down 2 on the previous term",
+  "Marks are Very consistent",
+  "Average 83.9 across the final 80 CP",
+  "2 assessment(s) due within 14 days",
+  "Next up: First Class at 80.0 WAM",
+  "Best subject: ECON2002 (90)",
+  "Weakest subject: LAWS1003 (66)",
+  "Average by assessment type: Assignment 85.8 (2), Quiz 73.3 (1), Exam 65 (1), Report 80 (1)",
+  "Best lever: Final exam (ACCT3003): +2.0 pts lifts C to D",
+  "Biggest risk: Final exam (FINC3014): below 78.8% costs HD → D"
+ ],
+ "persona": {
+  "name": "Alex Sample",
+  "style": "encouraging",
+  "about": "Aiming for honours. I work 20 hours a week."
+ }
+}

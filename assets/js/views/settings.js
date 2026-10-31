@@ -1,5 +1,8 @@
 import { html, icon, fmt, fmtPct, chip, toast, confirmDialog, isNativeApp } from '../ui.js';
-import { setReminders, nativeStatus, REMINDER_OPTIONS, reminderPlan } from '../native.js';
+import { setReminders, nativeStatus, REMINDER_OPTIONS, reminderPlan, SIRI_STYLES, siriProfile, forgetAssistant } from '../native.js';
+
+const SIRI_EXAMPLES = ["What's my WAM in GPA & WAM", "What's due next in GPA & WAM", "What do I need in [subject] in GPA & WAM",
+  'Am I on track in GPA & WAM', 'Coach me with GPA & WAM', 'Ask GPA & WAM a question', 'Open the planner in GPA & WAM'];
 import { DEFAULT_BANDS, DEFAULT_CLASSES } from '../state.js';
 
 const field = (label, bind, value, { type = 'text', hint = '', placeholder = '', mode = '' } = {}) => html`
@@ -26,6 +29,18 @@ export default {
           <label class="rem-time">at <input class="input" type="time" id="rem-time" value="${reminderPlan(state.prefs).time}" aria-label="Reminder time"></label></span></div>
         <div class="r"><span class="k">Notifications</span><span class="v" id="ns-notif">checking…</span></div>
         <div class="r"><span class="k">Home-screen widget<br><small class="muted">Long-press the home screen, tap + (or Edit → Add Widget), then find GPA &amp; WAM</small></span><span class="v" id="ns-widget">checking…</span></div>
+      </div></section>
+    <section class="card" style="margin-bottom:18px">
+      <div class="card-head"><h3>Siri &amp; Apple Intelligence</h3><span class="sub">Ask about your marks hands-free. Answers are worked out on this iPhone and never leave it</span></div>
+      <div class="card-body stat-list">
+        <div class="r siri-style"><span class="k">How Siri talks to you<br><small class="muted">Shapes every answer, from a quick WAM check to coaching</small></span>
+          <span class="v"><select class="select" id="siri-style" aria-label="Siri style">${SIRI_STYLES.map(([v, l]) => html`<option value="${v}" ${siriProfile(state.prefs).style === v ? 'selected' : ''}>${l}</option>`)}</select></span></div>
+        <div class="r siri-about"><span class="k">About you<br><small class="muted">Goals, workload, strengths and weak spots. Apple Intelligence tailors its advice to this</small></span>
+          <span class="v"><textarea class="input" id="siri-about" rows="3" maxlength="600" placeholder="e.g. Aiming for honours. I work 20 hours a week, statistics is my weak spot and exams stress me more than assignments.">${siriProfile(state.prefs).about}</textarea></span></div>
+        <div class="r"><span class="k">Memory<br><small class="muted">Siri keeps your last few questions for 3 days so follow-ups make sense, and notices the subjects you ask about most</small></span>
+          <span class="v"><span id="ns-memory">checking…</span> <button class="btn sm ghost" data-action="siri-forget">Forget</button></span></div>
+        <div class="r"><span class="k">Siri<br><small class="muted">Apple Intelligence answers need iOS 26 on a supported iPhone with it turned on; quick answers work on any iPhone</small></span><span class="v" id="ns-siri">checking…</span></div>
+        <div class="r siri-try"><span class="k">Try saying</span><span class="v">${SIRI_EXAMPLES.map(p => html`<span class="chip-toggle">“${p}”</span>`)}</span></div>
       </div></section>` : ''}
     <section class="grid g2">
       <div class="card">
@@ -151,13 +166,24 @@ export default {
   mount(root, ctx) {
     if (!isNativeApp()) return;
     root.querySelector('#rem-time')?.addEventListener('change', e => { if (e.target.value) ctx.update(st => { st.prefs.reminderTime = e.target.value; }); });
+    root.querySelector('#siri-style')?.addEventListener('change', e => ctx.update(st => { st.prefs.siriStyle = e.target.value; }));
+    root.querySelector('#siri-about')?.addEventListener('change', e => ctx.update(st => { st.prefs.siriAbout = e.target.value.trim().slice(0, 600); }));
     nativeStatus().then(st => {
+      const sm = root.querySelector('#ns-memory'), ss = root.querySelector('#ns-siri');
+      if (sm) sm.textContent = st.memory ? `${st.memory} recent question${st.memory === 1 ? '' : 's'}` : 'Nothing yet';
+      if (ss) ss.textContent = st.siri === 'ready' ? 'Ready' : st.siri === 'waiting' ? 'Getting your marks ready…' : 'Unavailable';
       const n = root.querySelector('#ns-notif'), w = root.querySelector('#ns-widget');
       if (n) n.textContent = st.notifications === 'granted' ? `Allowed · ${st.pending} scheduled` : st.notifications === 'denied' ? 'Blocked in iPhone Settings' : st.notifications === 'unavailable' ? 'Unavailable' : 'Not asked yet';
       if (w) w.textContent = st.widget === 'connected' ? 'Connected' : st.widget === 'not shared' ? 'Re-sign the app with app groups to connect' : 'Unavailable';
     });
   },
   actions: {
+    'siri-forget': async (el, ctx) => {
+      await forgetAssistant().catch(() => {});
+      const sm = document.getElementById('ns-memory');
+      if (sm) sm.textContent = 'Nothing yet';
+      toast('Siri has forgotten your recent questions.');
+    },
     'rem-day': (el, ctx) => {
       const d = Number(el.dataset.id);
       ctx.update(st => {

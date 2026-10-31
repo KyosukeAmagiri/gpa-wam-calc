@@ -1,4 +1,4 @@
-# Adds the widget extension and the in-app WidgetBridge plugin to the Xcode project that `npx cap add ios` generates.
+# Adds the widget extension, the Siri intents and the in-app WidgetBridge plugin to the Xcode project that `npx cap add ios` generates.
 # Run from ios-app/ after the native files have been copied into ios/App (see .github/workflows/ios.yml).
 require 'xcodeproj'
 
@@ -6,12 +6,15 @@ project = Xcodeproj::Project.open('ios/App/App.xcodeproj')
 app = project.targets.find { |t| t.name == 'App' } or abort('App target not found')
 app_group = project.main_group.find_subpath('App', false) or abort('App group not found')
 
-# 1. The bridge plugin and the view controller that registers it, plus the app group entitlement.
-%w[WidgetBridgePlugin.swift MainViewController.swift].each do |name|
+# 1. The bridge plugin, the view controller that registers it, the Siri intents and the app group entitlement.
+%w[WidgetBridgePlugin.swift MainViewController.swift GradeData.swift GradeIntents.swift].each do |name|
   app.add_file_references([app_group.new_reference(name)])
 end
 app_group.new_reference('App.entitlements')
-app.build_configurations.each { |c| c.build_settings['CODE_SIGN_ENTITLEMENTS'] = 'App/App.entitlements' }
+app.build_configurations.each do |c|
+  c.build_settings['CODE_SIGN_ENTITLEMENTS'] = 'App/App.entitlements'
+  c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '17.0' # App Intents with parameters in Siri phrases
+end
 
 # 2. The widget extension target.
 widget = project.new_target(:app_extension, 'GPAWAMWidget', :ios, '17.0')

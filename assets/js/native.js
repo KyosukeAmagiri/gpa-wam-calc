@@ -12,13 +12,18 @@ let widgetTimer = 0, remindTimer = 0, lastWidget = '', lastRemind = '';
 export function syncNative(state, E) {
   if (!isNativeApp()) return;
   clearTimeout(widgetTimer);
-  widgetTimer = setTimeout(() => pushWidget(E).catch(() => {}), 700);
+  widgetTimer = setTimeout(() => pushWidget(E, state.prefs).catch(() => {}), 700);
   clearTimeout(remindTimer);
   remindTimer = setTimeout(() => scheduleReminders(state, E).catch(() => {}), 1500);
 }
 
-export function widgetSummary(E) {
-  const m = E.m, has = m.MARK_N > 0;
+// Numbers the Swift side decodes as Double?: anything blank or non-finite becomes null.
+const num = (v, dp = 1) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 10 ** dp) / 10 ** dp : null);
+const plain = s => String(s || '').replace(/\p{Extended_Pictographic}\uFE0F?/gu, '').replace(/\s+/g, ' ').trim();
+
+// What the widget and Siri read. The widget uses the top fields; Siri and Apple Intelligence also use the lists.
+export function widgetSummary(E, prefs = {}) {
+  const m = E.m, has = m.MARK_N > 0, mc = E.mc || {};
   const next = E.dueList.find(a => a.days >= 0);
   return {
     wam: has ? Math.round(m.WAM * 100) / 100 : null, gpa: has ? Math.round(m.GPA * 1000) / 1000 : null, maxGPA: E.maxGPA,
@@ -26,16 +31,44 @@ export function widgetSummary(E) {
     cp: m.CP_DONE, totalCP: E.S.totalCP, targetWAM: E.S.targetWAM, targetGPA: E.S.targetGPA,
     nextCode: next ? next.code : null, nextName: next ? next.name : null, nextDue: next ? isoDay(next.due) : null,
     dueSoon: m.DUE_SOON_N, updated: new Date().toISOString(),
+    overdue: m.OVERDUE_N, cpToWAM: num(m.CP_TO_WAM, 0), needAvgWAM: m.CP_TO_WAM > 0 ? num(m.NEED_AVG_WAM) : null,
+    projWAM: mc.hasRemaining ? num(mc.p50, 2) : null, projGPA: mc.hasRemaining ? num(mc.gp50, 2) : null,
+    momentum: m.TERMS_N >= 2 ? num(m.MOMENTUM, 2) : null,
+    pTarget: mc.hasRemaining ? num(mc.pTarget, 3) : null, pTargetGPA: mc.hasRemaining ? num(mc.pTargetGPA, 3) : null,
+    upcoming: E.dueList.filter(a => a.days >= 0).slice(0, 8)
+      .map(a => ({ code: a.code, name: a.name, due: isoDay(a.due), weight: num(a.weight), days: a.days })),
+    current: E.tracker.map(t => ({
+      code: t.code, name: t.name, sofar: num(t.sofar), graded: num(t.graded, 0), remaining: num(t.remaining, 0),
+      needHD: num(t.needHD), needD: num(t.needD), needC: num(t.needC), status: plain(t.statusText),
+    })),
+    done: E.chron.filter(r => r.mark !== '' && r.status !== 'In Progress').slice(-60)
+      .map(r => ({ code: r.code, name: r.name, mark: num(r.mark), grade: r.grade || '' })),
+    // what the Insights and Risk pages say, so Siri can talk about patterns and not just numbers
+    insights: has ? [
+      E.text.TREND_TEXT, m.TERMS_N >= 2 && m.MOMENTUM && `WAM ${m.MOMENTUM > 0 ? 'up' : 'down'} ${num(Math.abs(m.MOMENTUM))} on the previous term`, E.text.CONSISTENCY_TEXT !== '—' && `Marks are ${E.text.CONSISTENCY_TEXT}`,
+      E.text.GOAL_TEXT, E.text.RISK_TEXT, E.text.NEXT_TEXT,
+      m.BEST && `Best subject: ${m.BEST.code} ${m.BEST.name} (${num(m.BEST.mark)})`, m.WORST && `Weakest subject: ${m.WORST.code} ${m.WORST.name} (${num(m.WORST.mark)})`,
+      E.types.filter(t => t.n).length > 1 && `Average by assessment type: ${E.types.filter(t => t.n).map(t => `${t.type} ${num(t.avg)} (${t.n})`).join(', ')}`,
+      E.scanner.openCount && `Best lever: ${E.scanner.bestLever}`, E.scanner.openCount && `Biggest risk: ${E.scanner.topRisk}`,
+    ].filter(Boolean).map(plain).filter(s => s && s !== '—') : [],
+    persona: { name: E.S.studentName || '', ...siriProfile(prefs) },
   };
 }
 
-async function pushWidget(E) {
+// How Siri talks to you, chosen in Settings → Siri & Apple Intelligence.
+export const SIRI_STYLES = [['encouraging', 'Encouraging coach'], ['direct', 'Straight to the point'], ['detailed', 'Detailed analyst']];
+export const siriProfile = prefs => ({
+  style: SIRI_STYLES.some(([v]) => v === prefs.siriStyle) ? prefs.siriStyle : 'encouraging',
+  about: String(prefs.siriAbout || '').slice(0, 600),
+});
+
+async function pushWidget(E, prefs) {
   const bridge = nativePlugin('WidgetBridge');
   if (!bridge) return null;
-  const summary = JSON.stringify({ ...widgetSummary(E), updated: '' });
+  const full = widgetSummary(E, prefs), summary = JSON.stringify({ ...full, updated: '' });
   if (summary === lastWidget) return null;
   lastWidget = summary;
-  return bridge.update({ summary: JSON.stringify(widgetSummary(E)) });
+  return bridge.update({ summary: JSON.stringify(full) });
 }
 
 // The reminder choices offered in Settings, as days before the due date.
@@ -91,12 +124,23 @@ export async function nativeStatus() {
   // a plugin that is missing on the native side never answers, so every check gives up after a few seconds
   const within = p => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 3000))]);
   try { if (LN) { out.notifications = (await within(LN.checkPermissions())).display; out.pending = (await within(LN.getPending())).notifications.length; } } catch (e) { /* plugin missing */ }
-  try { if (bridge) { const r = await within(bridge.status()); out.widget = r.shared ? 'connected' : 'not shared'; } } catch (e) { /* plugin missing */ }
+  try { if (bridge) { const r = await within(bridge.status()); out.widget = r.shared ? 'connected' : 'not shared'; out.siri = r.siriReadable ? 'ready' : 'waiting'; out.memory = r.memory || 0; } } catch (e) { /* plugin missing */ }
   return out;
 }
 
-// Tapping a reminder opens the Assessments page.
+// Clears what Siri remembers about recent questions.
+export async function forgetAssistant() {
+  const bridge = nativePlugin('WidgetBridge');
+  if (bridge) await bridge.forgetAssistant();
+}
+
+// Tapping a reminder opens the Assessments page; "Open the planner in GPA & WAM" (Siri) opens the page it names.
 export function initNative(go) {
   const LN = nativePlugin('LocalNotifications');
   if (LN && LN.addListener) LN.addListener('localNotificationActionPerformed', ev => go((ev.notification.extra && ev.notification.extra.route) || 'assessments'));
+  const bridge = nativePlugin('WidgetBridge');
+  if (!bridge) return;
+  const takeRoute = () => bridge.takeRoute().then(r => { if (r && r.route) go(r.route); }).catch(() => {});
+  takeRoute();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) takeRoute(); });
 }
