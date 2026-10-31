@@ -1,5 +1,6 @@
 import { html, icon, fmt, fmtPct, chip, toast, confirmDialog, isNativeApp } from '../ui.js';
 import { setReminders, nativeStatus, REMINDER_OPTIONS, reminderPlan, SIRI_STYLES, siriProfile, forgetAssistant } from '../native.js';
+import { confirmIdentity, biometryName, setPrivacyShield } from '../lock.js';
 
 const SIRI_EXAMPLES = ["What's my WAM in GPA & WAM", "What's due next in GPA & WAM", "What do I need in [subject] in GPA & WAM",
   'Am I on track in GPA & WAM', 'Run a what-if in GPA & WAM', 'Try it in the GPA & WAM sandbox', 'Coach me with GPA & WAM',
@@ -28,6 +29,12 @@ export default {
         <div class="r rem-plan"><span class="k">Remind me</span>
           <span class="v"><span class="rem-days" role="group" aria-label="When to remind">${REMINDER_OPTIONS.map(([d, label]) => html`<button class="chip-toggle ${reminderPlan(state.prefs).days.includes(d) ? 'on' : ''}" data-action="rem-day" data-id="${d}" aria-pressed="${reminderPlan(state.prefs).days.includes(d)}">${label}</button>`)}</span>
           <label class="rem-time">at <input class="input" type="time" id="rem-time" value="${reminderPlan(state.prefs).time}" aria-label="Reminder time"></label></span></div>
+        <div class="r"><span class="k">“Got your mark back?” nudges<br><small class="muted">A week after a due date, a reminder to enter the mark (needs reminders on)</small></span>
+          <span class="v"><button class="btn ${state.prefs.markNudges !== false ? 'primary' : ''} sm" data-action="toggle-pref" data-id="markNudges" aria-pressed="${state.prefs.markNudges !== false}">${state.prefs.markNudges !== false ? 'On' : 'Off'}</button></span></div>
+        <div class="r"><span class="k">Lock Screen countdown on due days<br><small class="muted">Pins a live countdown to anything due today when you open the app. Pin one any time from the Study planner</small></span>
+          <span class="v"><button class="btn ${state.prefs.autoPin !== false ? 'primary' : ''} sm" data-action="toggle-pref" data-id="autoPin" aria-pressed="${state.prefs.autoPin !== false}">${state.prefs.autoPin !== false ? 'On' : 'Off'}</button></span></div>
+        <div class="r"><span class="k"><span id="ns-bio">Face ID</span> lock<br><small class="muted">Unlock the app with Face ID, Touch ID or your passcode. It also hides your marks in the app switcher</small></span>
+          <span class="v"><button class="btn ${state.prefs.faceLock ? 'primary' : ''} sm" data-action="face-lock" aria-pressed="${state.prefs.faceLock === true}">${state.prefs.faceLock ? 'On' : 'Off'}</button></span></div>
         <div class="r"><span class="k">Notifications</span><span class="v" id="ns-notif">checking…</span></div>
         <div class="r"><span class="k">Home-screen widget<br><small class="muted">Long-press the home screen, tap + (or Edit → Add Widget), then find GPA &amp; WAM</small></span><span class="v" id="ns-widget">checking…</span></div>
       </div></section>
@@ -169,6 +176,7 @@ export default {
     root.querySelector('#rem-time')?.addEventListener('change', e => { if (e.target.value) ctx.update(st => { st.prefs.reminderTime = e.target.value; }); });
     root.querySelector('#siri-style')?.addEventListener('change', e => ctx.update(st => { st.prefs.siriStyle = e.target.value; }));
     root.querySelector('#siri-about')?.addEventListener('change', e => ctx.update(st => { st.prefs.siriAbout = e.target.value.trim().slice(0, 600); }));
+    biometryName().then(n => { const el = root.querySelector('#ns-bio'); if (el && n) el.textContent = n; });
     nativeStatus().then(st => {
       const sm = root.querySelector('#ns-memory'), ss = root.querySelector('#ns-siri');
       if (sm) sm.textContent = st.memory ? `${st.memory} recent question${st.memory === 1 ? '' : 's'}` : 'Nothing yet';
@@ -179,6 +187,15 @@ export default {
     });
   },
   actions: {
+    'toggle-pref': (el, ctx) => { const k = el.dataset.id; ctx.update(s => { s.prefs[k] = s.prefs[k] === false; }); },
+    'face-lock': async (el, ctx) => {
+      const want = ctx.state.prefs.faceLock !== true;
+      // turning it on proves the phone can unlock it, so nobody gets locked out
+      if (want && !(await confirmIdentity('Turn on the app lock'))) { toast('The lock stays off: Face ID, Touch ID or the passcode did not confirm it.', 'error', 5000); return; }
+      ctx.update(s => { s.prefs.faceLock = want; });
+      setPrivacyShield(want);
+      toast(want ? 'App lock on. GPA & WAM will ask to unlock when you open it.' : 'App lock off.', want ? 'good' : undefined);
+    },
     'siri-forget': async (el, ctx) => {
       await forgetAssistant().catch(() => {});
       const sm = document.getElementById('ns-memory');

@@ -6,6 +6,9 @@ import * as exporter from './export.js';
 import { openPalette } from './palette.js';
 import { enableMenuGestures } from './gestures.js';
 import { syncNative, initNative } from './native.js';
+import { renderTimerChip, stopTimer } from './timer.js';
+import { openOutlineImport } from './import-outline.js';
+import { initLock } from './lock.js';
 
 import dashboard from './views/dashboard.js';
 import subjects from './views/subjects.js';
@@ -17,11 +20,12 @@ import degree from './views/degree.js';
 import summary from './views/summary.js';
 import history from './views/history.js';
 import settings from './views/settings.js';
+import study from './views/study.js';
 
-const VIEWS = { dashboard, subjects, assessments, insights, scanner, planner, degree, summary, history, settings };
+const VIEWS = { dashboard, subjects, assessments, study, insights, scanner, planner, degree, summary, history, settings };
 const NAV = [
   ['Overview', [['dashboard', 'Dashboard', 'dashboard']]],
-  ['Record', [['subjects', 'Subjects', 'book'], ['assessments', 'Assessments', 'list']]],
+  ['Record', [['subjects', 'Subjects', 'book'], ['assessments', 'Assessments', 'list'], ['study', 'Study planner', 'timer']]],
   ['Analyse', [['insights', 'Insights', 'insights'], ['scanner', 'Risk & opportunity', 'radar'], ['planner', 'Planner & odds', 'dice'], ['degree', 'Degree map', 'map']]],
   ['Report', [['summary', 'Academic summary', 'doc'], ['history', 'History', 'clock']]],
   ['', [['settings', 'Settings', 'gear']]],
@@ -180,6 +184,7 @@ export function render() {
     mountCharts();
     renderNav();
     renderSandbox();
+    renderTimerChip(state, { go, onFocusEnd });
     if (!sandbox) syncNative(state, E); // the widget and reminders follow the saved record, not sandbox experiments
     window.scrollTo(0, scrollY);
     restoreFocus(focus);
@@ -230,6 +235,7 @@ function renderNav() {
     assessments: E.m.OVERDUE_N ? `${E.m.OVERDUE_N} overdue` : E.dueList.length ? String(E.dueList.length) : '',
     scanner: E.scanner.openCount ? String(E.scanner.openCount) : '',
     degree: E.plan.PLAN_ISSUES ? String(E.plan.PLAN_ISSUES) : '',
+    study: state.prefs.timer ? 'live' : '',
   };
   const warn = { assessments: E.m.OVERDUE_N > 0, degree: E.plan.PLAN_ISSUES > 0 };
   document.getElementById('nav').innerHTML = NAV.map(([group, items]) => html`
@@ -317,6 +323,7 @@ export function blankSubject(s) {
 document.getElementById('menu-btn').innerHTML = icon('menu').s;
 document.getElementById('menu-btn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
 enableMenuGestures();
+initLock(() => state);
 initNative(r => go(r), (changes, r) => runSiriScenario(changes, r));
 document.addEventListener('click', e => { if (document.body.classList.contains('nav-open') && !e.target.closest('.side') && !e.target.closest('#menu-btn')) document.body.classList.remove('nav-open'); });
 document.getElementById('btn-import').innerHTML = html`${icon('upload')}<span class="lbl">Import from MySR</span>`.s;
@@ -389,6 +396,11 @@ document.getElementById('file-json').addEventListener('change', async e => {
   }
 });
 
+// A focus block ran out: say so in the page (the iPhone app also gets a notification, scheduled when the timer started).
+function onFocusEnd(t) {
+  toast(`Focus block done: ${t.focus} minutes on ${t.label}. Stop the timer to log it, or keep going.`, 'good', 8000);
+}
+
 // ---------- sandbox: try changes against a frozen copy of the saved record, then keep or discard them ----------
 let sandbox = null; // { base: saved state, baseM: its metrics }
 const sandboxChanged = () => sandbox && JSON.stringify({ ...state, updatedAt: 0 }) !== JSON.stringify({ ...sandbox.base, updatedAt: 0 });
@@ -428,8 +440,11 @@ async function leaveSandbox(keep) {
   sandbox = null;
   if (keep) persist();
   else {
-    // the saved copy is already the base, so there is nothing to write
-    state = normaliseState(base); applyTheme(); recompute();
+    // study time and a running timer are real even in a sandbox, so they carry over
+    const { sessions, prefs: { timer } } = state;
+    const studied = JSON.stringify(sessions) !== JSON.stringify(base.sessions || []);
+    state = normaliseState(base); state.sessions = sessions; state.prefs.timer = timer; applyTheme(); recompute();
+    if (studied) persist();
     saveEl().classList.remove('sandbox', 'unsaved');
     saveEl().querySelector('span').textContent = 'Saved on this device';
   }
@@ -469,7 +484,9 @@ function paletteItems() {
   NAV.flatMap(([, list]) => list).forEach(([id, label, ic]) => items.push({ label, icon: ic, group: 'Pages', keywords: id, run: () => go(id) }));
   const act = (label, ic, run, keywords = '') => items.push({ label, icon: ic, group: 'Actions', run, keywords });
   act('Import results from MySR', 'upload', () => openImport(), 'pdf paste screenshot transcript');
+  act('Import a subject outline (Learning Guide)', 'doc', () => openOutlineImport(makeCtx()), 'assessments weights due dates pdf learning guide unit outline');
   act(sandbox ? 'Leave the sandbox' : 'Start a sandbox (try changes without saving)', 'flask', () => (sandbox ? leaveSandbox(false) : enterSandbox()), 'what if test experiment');
+  act(state.prefs.timer ? 'Stop the study timer and log it' : 'Open the study planner and focus timer', 'timer', () => (state.prefs.timer ? stopTimer(update, state) : go('study')), 'focus pomodoro revision crunch plan hours');
   act('Add a subject', 'plus', () => { update(s => { s.subjects.push(blankSubject(s)); }); go('subjects'); }, 'new unit');
   act('Excel workbook (.xlsx)', 'file', () => runExport('xlsx'), 'export spreadsheet');
   act('Back up everything (JSON)', 'shield', () => runExport('json'), 'export save backup');

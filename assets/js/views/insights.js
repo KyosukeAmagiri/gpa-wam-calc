@@ -1,5 +1,6 @@
 import { html, fmt, fmtPct, fmtSigned, gradePill, gradeStyle, series, oklch, isDark } from '../ui.js';
 import { hbarChart, columnChart } from '../charts.js';
+import { focusStats } from '../study.js';
 
 // Sequential crimson ramp for the heatmap (light near low, dark near high).
 function heatStyle(v, lo, hi) {
@@ -82,7 +83,8 @@ export default {
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Year</th><th class="n">N</th><th class="n">CP</th><th class="n">WAM</th><th class="n">GPA</th><th class="n">Best</th><th class="n">Worst</th></tr></thead>
         <tbody>${E.years.filter(y => y.cp > 0).map(y => html`<tr><td class="strong">${y.label}</td><td class="n">${y.n}</td><td class="n">${fmt(y.cp, 0)}</td><td class="n strong">${fmt(y.wam, 1)}</td><td class="n">${fmt(y.gpa, 2)}</td><td class="n">${fmt(y.best, 0)}</td><td class="n">${fmt(y.worst, 0)}</td></tr>`)}</tbody></table></div>
       </div>
-    </section>`;
+    </section>
+    ${studyVsMarks(E, ctx.state)}`;
   },
   mount(root, ctx) {
     const { E } = ctx;
@@ -100,3 +102,19 @@ export default {
     if (t) hbarChart(t, { title: 'Average by assessment type', name: 'Average', items: ty.map(x => ({ label: x.type, value: x.avg, tip: `${x.n} item(s) · best ${fmt(x.best, 0)}%` })), color: series(1), min: 0, max: 100, valueFmt: v => `${fmt(v, 1)}%`, empty: 'No graded items yet' });
   },
 };
+
+// Hours logged with the focus timer next to each subject's mark, so you can see where effort paid off.
+function studyVsMarks(E, state) {
+  const F = focusStats(E, state);
+  const rows = F.subjects.filter(r => r.code);
+  if (!rows.length) return '';
+  const most = Math.max(...rows.map(r => r.minutes));
+  return html`<section class="card mt">
+    <div class="card-head"><h3>Study time vs marks</h3><span class="sub">From the focus timer on the Study planner · ${fmt(F.total / 60, 1)} hours logged</span></div>
+    <div class="card-body flush tbl-wrap"><table class="tbl"><thead><tr><th>Subject</th><th>Hours</th><th class="n">Mark</th><th class="n">Marks per hour</th></tr></thead>
+      <tbody>${rows.map(r => html`<tr><td><b>${r.code}</b> <span class="muted">${r.row ? r.row.name : ''}</span></td>
+        <td><span class="sv-bar"><i style="width:${(r.minutes / most) * 100}%"></i></span> ${fmt(r.minutes / 60, 1)}</td>
+        <td class="n strong">${r.mark === '' ? '—' : fmt(r.mark, 1)}</td>
+        <td class="n">${r.mark === '' || r.minutes < 30 ? '—' : fmt(r.mark / (r.minutes / 60), 1)}</td></tr>`)}</tbody></table></div>
+  </section>`;
+}

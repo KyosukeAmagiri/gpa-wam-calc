@@ -1,5 +1,5 @@
-// iPhone app only: keeps the home-screen widget and the deadline reminders in step with the saved record.
-import { isNativeApp, nativePlugin } from './ui.js';
+// iPhone app only: keeps the home-screen widget, reminders and Lock Screen countdowns in step with the saved record.
+import { isNativeApp, nativePlugin, toast } from './ui.js';
 
 const pad = n => String(n).padStart(2, '0');
 const isoDay = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -14,7 +14,7 @@ export function syncNative(state, E) {
   clearTimeout(widgetTimer);
   widgetTimer = setTimeout(() => pushWidget(E, state.prefs).catch(() => {}), 700);
   clearTimeout(remindTimer);
-  remindTimer = setTimeout(() => scheduleReminders(state, E).catch(() => {}), 1500);
+  remindTimer = setTimeout(() => { scheduleReminders(state, E).catch(() => {}); autoPin(state, E); }, 1500);
 }
 
 // Numbers the Swift side decodes as Double?: anything blank or non-finite becomes null.
@@ -119,6 +119,13 @@ async function scheduleReminders(state, E) {
         when.setHours(hh, mm, 0, 0);
         if (when.getTime() > now + 60000) list.push({ id: idFor(`${a.id}:${before}`), title, body: `${dueText(before)}${worth}`, schedule: { at: when, allowWhileIdle: true }, extra: { route: 'assessments' } });
       }
+      // a week after the due date, ask whether the mark is back (participation has no single mark to wait for)
+      if (state.prefs.markNudges !== false && a.type !== 'Participation' && a.type !== 'Bonus') {
+        const back = new Date(a.due);
+        back.setDate(back.getDate() + 7);
+        back.setHours(hh, mm, 0, 0);
+        if (back.getTime() > now + 60000) list.push({ id: idFor(`${a.id}:back`), title: `Got your mark back? ${title}`, body: 'Enter it to keep your WAM, widget and Siri current.', schedule: { at: back, allowWhileIdle: true }, extra: { route: 'assessments' } });
+      }
     }
     list.sort((x, y) => x.schedule.at - y.schedule.at);
   }
@@ -127,8 +134,57 @@ async function scheduleReminders(state, E) {
   if (key === lastRemind) return;
   lastRemind = key;
   const pending = await LN.getPending();
-  if (pending.notifications.length) await LN.cancel({ notifications: pending.notifications.map(n => ({ id: n.id })) });
+  const stale = pending.notifications.filter(n => n.id !== FOCUS_ID); // a running focus timer keeps its alert
+  if (stale.length) await LN.cancel({ notifications: stale.map(n => ({ id: n.id })) });
   if (wanted.length) await LN.schedule({ notifications: wanted });
+}
+
+// ---------- focus timer and Lock Screen countdowns ----------
+const FOCUS_ID = 909090;
+
+// Mirrors the focus timer as a Live Activity, and asks iOS to say when a focus block ends while the app is closed.
+export function timerStarted(t) {
+  if (!isNativeApp()) return;
+  const bridge = nativePlugin('WidgetBridge'), LN = nativePlugin('LocalNotifications');
+  bridge?.startActivity({ kind: 'timer', title: t.label, code: t.code || '', start: t.start, end: t.focus ? t.start + t.focus * 60000 : 0 }).catch(() => {});
+  if (t.focus && LN) {
+    LN.checkPermissions().then(p => (p.display === 'granted'
+      ? LN.schedule({ notifications: [{ id: FOCUS_ID, title: 'Focus block done', body: `${t.focus} minutes on ${t.label}. Open the app to log it.`, schedule: { at: new Date(t.start + t.focus * 60000), allowWhileIdle: true }, extra: { route: 'study' } }] })
+      : null)).catch(() => {});
+  }
+}
+
+export function timerStopped() {
+  if (!isNativeApp()) return;
+  nativePlugin('WidgetBridge')?.endActivity({ kind: 'timer' }).catch(() => {});
+  nativePlugin('LocalNotifications')?.cancel({ notifications: [{ id: FOCUS_ID }] }).catch(() => {});
+}
+
+// A live countdown to an assessment's due time (11:59 pm on the day) on the Lock Screen and in the Dynamic Island.
+export async function pinCountdown(a, { quiet = false } = {}) {
+  const bridge = nativePlugin('WidgetBridge');
+  if (!bridge) return false;
+  const due = new Date(a.due);
+  due.setHours(23, 59, 0, 0);
+  try {
+    const r = await bridge.startActivity({ kind: 'deadline', id: a.id, title: a.name, code: a.code || '', end: due.getTime(), weight: a.weight === '' ? 0 : Number(a.weight) });
+    if (!quiet) toast(r && r.ok ? `${a.code} ${a.name} is counting down on your Lock Screen. iOS keeps it for up to 8 hours, so it works best on the day.` : 'Live Activities are turned off for GPA & WAM in iPhone Settings.', r && r.ok ? 'good' : 'error', 6500);
+    return !!(r && r.ok);
+  } catch (e) {
+    if (!quiet) toast('This iPhone could not start a Live Activity.', 'error');
+    return false;
+  }
+}
+
+// On a due day, pin the countdown by itself once (Settings → Lock Screen countdown).
+const pinnedKey = 'gpawam.pinned';
+function autoPin(state, E) {
+  if (state.prefs.autoPin === false) return;
+  const today = E.dueList.find(a => a.days === 0);
+  if (!today) return;
+  const tag = `${today.id}:${isoDay(new Date())}`;
+  try { if (localStorage.getItem(pinnedKey) === tag) return; localStorage.setItem(pinnedKey, tag); } catch (e) { return; }
+  pinCountdown(today, { quiet: true });
 }
 
 // Turns reminders on (asking iOS for permission) or off. Returns the new setting.

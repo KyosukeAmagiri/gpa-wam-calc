@@ -52,6 +52,7 @@ export function defaultState() {
     prereqs: defaultPrereqs(),
     offerings: defaultOfferings(),
     history: [],
+    sessions: [],
     prefs: { theme: 'system' },
     updatedAt: null,
   };
@@ -68,7 +69,7 @@ export function normaliseState(raw) {
   if (!s.planner.overrides || typeof s.planner.overrides !== 'object') s.planner.overrides = {};
   if (!Array.isArray(s.planner.scenario)) s.planner.scenario = [];
   s.prefs = { ...d.prefs, ...(raw.prefs || {}) };
-  for (const k of ['subjects', 'assessments', 'history', 'prereqs', 'offerings']) if (!Array.isArray(s[k])) s[k] = d[k];
+  for (const k of ['subjects', 'assessments', 'history', 'prereqs', 'offerings', 'sessions']) if (!Array.isArray(s[k])) s[k] = d[k];
   s.subjects = s.subjects.map(x => ({ id: x.id || uid(), year: '', sem: '', code: '', name: '', category: '', cp: '', status: '', mark: '', notes: '', target: '', ...x }));
   s.assessments = s.assessments.map(x => ({ id: x.id || uid(), code: '', name: '', type: '', weight: '', score: '', outOf: '', due: '', comment: '', est: '', ...x }));
   s.prereqs = s.prereqs.map(x => ({ id: x.id || uid(), subject: '', rule: 'Pre', ...x, opts: [0, 1, 2].map(i => (x.opts || [])[i] || '') }));

@@ -32,6 +32,32 @@ export function exportCalendar(E) {
   toast(`${items.length} due date(s) exported. Open the file to add them to your calendar.`, 'good');
 }
 
+// Study plan sessions become timed events, back to back from the usual start time each day.
+export function exportStudyPlan(plan) {
+  const days = plan.days.filter(d => d.total > 0);
+  if (!days.length) { toast('The plan has no sessions yet. Set some study hours first.'); return; }
+  const pad = n => String(n).padStart(2, '0');
+  const stampOf = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  const icsText = s => String(s).replace(/[\\;,]/g, c => `\\${c}`).replace(/\r?\n/g, '\\n');
+  const fold = line => { let out = '', rest = line; while (rest.length > 73) { out += rest.slice(0, 73) + '\r\n '; rest = rest.slice(73); } return out + rest; };
+  const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const [hh, mm] = plan.prefs.start.split(':').map(Number);
+  const ev = days.flatMap(d => {
+    let at = new Date(d.date.getFullYear(), d.date.getMonth(), d.date.getDate(), hh, mm);
+    return d.sessions.map((s, i) => {
+      const end = new Date(at.getTime() + s.hours * 3600000);
+      const title = `Study: ${s.a.code ? `${s.a.code} · ` : ''}${s.a.name}`;
+      const lines = ['BEGIN:VEVENT', `UID:plan-${s.a.id}-${stampOf(d.date).slice(0, 8)}-${i}@gpa-wam-calc`, `DTSTAMP:${now}`, `DTSTART:${stampOf(at)}`, `DTEND:${stampOf(end)}`,
+        `SUMMARY:${icsText(title)}`, `DESCRIPTION:${icsText(`${s.hours} h towards ${s.a.name}, due ${s.a.due.toDateString()}${s.a.weight !== '' ? `, worth ${s.a.weight}%` : ''}`)}`, 'END:VEVENT'];
+      at = end;
+      return lines;
+    }).flat();
+  });
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//GPA and WAM Calculator//EN', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:Study plan', ...ev, 'END:VCALENDAR'].map(fold).join('\r\n') + '\r\n';
+  download(`study-plan-${stamp()}.ics`, ics, 'text/calendar;charset=utf-8');
+  toast(`${days.reduce((n, d) => n + d.sessions.length, 0)} study session(s) exported. Open the file to add them to your calendar.`, 'good');
+}
+
 // ---------- transfer link ----------
 // The whole record, deflated and base64url-encoded into the link's # part. Browsers never send the # part to a server.
 const toB64url = bytes => {

@@ -185,5 +185,8 @@ struct GPAWAMWidget: Widget {
 
 @main
 struct GPAWAMWidgets: WidgetBundle {
-    var body: some Widget { GPAWAMWidget() }
+    var body: some Widget {
+        GPAWAMWidget()
+        GPAWAMLiveActivity()
+    }
 }

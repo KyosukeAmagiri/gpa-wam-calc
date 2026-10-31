@@ -7,7 +7,7 @@ app = project.targets.find { |t| t.name == 'App' } or abort('App target not foun
 app_group = project.main_group.find_subpath('App', false) or abort('App group not found')
 
 # 1. The bridge plugin, the view controller that registers it, the Siri intents and the app group entitlement.
-%w[WidgetBridgePlugin.swift MainViewController.swift GradeData.swift Simulation.swift GradeIntents.swift].each do |name|
+%w[WidgetBridgePlugin.swift MainViewController.swift GradeData.swift Simulation.swift GradeIntents.swift GPAWAMActivity.swift].each do |name|
   app.add_file_references([app_group.new_reference(name)])
 end
 app_group.new_reference('App.entitlements')
@@ -19,7 +19,9 @@ end
 # 2. The widget extension target.
 widget = project.new_target(:app_extension, 'GPAWAMWidget', :ios, '17.0')
 group = project.main_group.new_group('GPAWAMWidget', 'GPAWAMWidget')
-widget.add_file_references([group.new_reference('GPAWAMWidget.swift')])
+widget.add_file_references([group.new_reference('GPAWAMWidget.swift'), group.new_reference('GPAWAMLiveActivity.swift')])
+# the Live Activity's data type lives with the app, which starts the activities, and is compiled into both
+widget.add_file_references([app_group.files.find { |f| f.path == 'GPAWAMActivity.swift' }])
 group.new_reference('Info.plist')
 group.new_reference('GPAWAMWidget.entitlements')
 widget.add_system_framework('WidgetKit')

@@ -61,6 +61,9 @@ jobs:
         run: |
           plist=ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'GPA & WAM'" "$plist" || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string 'GPA & WAM'" "$plist"
+          # Lock Screen countdowns and the focus timer, and the Face ID lock's reason
+          /usr/libexec/PlistBuddy -c "Add :NSSupportsLiveActivities bool true" "$plist"
+          /usr/libexec/PlistBuddy -c "Add :NSFaceIDUsageDescription string 'GPA & WAM uses Face ID to unlock your marks when the app lock is on.'" "$plist"
           # other names Siri accepts for the app, since "GPA & WAM" is awkward to say (iOS refuses to install with more than 3)
           /usr/libexec/PlistBuddy -c "Add :INAlternativeAppNames array" "$plist"
           i=0
@@ -130,6 +133,9 @@ jobs:
             await t('widget status', () => P('WidgetBridge').status());
             await t('siri route', () => P('WidgetBridge').takeRoute());
             await t('siri forget', () => P('WidgetBridge').forgetAssistant());
+            await t('live activity', () => P('WidgetBridge').startActivity({ kind: 'timer', title: 'Self-test', code: 'TEST1001', start: Date.now(), end: Date.now() + 1500000 }));
+            await t('end activity', () => P('WidgetBridge').endActivity({ kind: 'timer' }));
+            await t('biometry', () => P('WidgetBridge').biometry());
             await t('siri card', () => ['siri-style', 'siri-about', 'ns-siri', 'ns-memory'].map(id => id + '=' + (document.getElementById(id) ? (document.getElementById(id).value || document.getElementById(id).textContent) : 'missing')).join(' '));
             await t('notifications', () => P('LocalNotifications').checkPermissions());
             await t('pending', () => P('LocalNotifications').getPending().then(r => r.notifications.length));

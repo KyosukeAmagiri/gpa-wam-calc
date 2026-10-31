@@ -1,5 +1,7 @@
 import { html, icon, fmt, gradePillFor, chip, statusKind, toast, confirmDialog } from '../ui.js';
 import { TYPES, cleanCode } from '../engine.js';
+import { crunchCard } from './study.js';
+import { openOutlineImport } from '../import-outline.js';
 
 const opt = (v, cur, label = v) => html`<option value="${v}" ${String(cur) === String(v) ? 'selected' : ''}>${label}</option>`;
 const STATUS_KIND = { graded: 'good', pending: 'neutral', overdue: 'critical', soon: 'warning', upcoming: 'info' };
@@ -77,7 +79,9 @@ export default {
       <label class="field" style="flex-direction:row;align-items:center;gap:8px"><span>New item for</span>
         <select class="select" id="new-for" style="width:150px">${E.ledger.filter(r => r.code).sort((a, b) => (a.status === 'In Progress' ? 0 : 1) - (b.status === 'In Progress' ? 0 : 1)).map(r => html`<option value="${r.code}">${r.code}${r.status === 'In Progress' ? ' · in progress' : ''}</option>`)}<option value="">No code yet</option></select></label>
       <button class="btn primary sm" data-action="add-picked">${icon('plus', 15)}Add item</button>
+      <button class="btn sm" data-action="outline">${icon('doc', 15)}Import subject outline</button>
     </div>
+    ${crunchCard(E)}
     <p class="note mt-s">Enter a score and what it's out of, and it counts as graded. Use the <b>Bonus</b> type for flat marks (like an attendance bonus): they add on top of the weighted mark, capped at 100, and don't count toward the 100% weight total. Set <b>Est?</b> to Yes for any score you've estimated rather than received, so the Scanner and Monte Carlo treat it as still open.</p>
     ${groups.length ? groups.map(groupHTML) : html`<section class="card mt"><div class="empty"><b>No assessments yet</b>Pick a subject above and add its assessment items, starting with the weightings from the learning guide.</div></section>`}
 
@@ -100,6 +104,7 @@ export default {
   },
   actions: {
     add: (el, ctx) => addItem(ctx, el.dataset.id),
+    outline: (el, ctx) => openOutlineImport(ctx),
     'add-picked': (el, ctx) => addItem(ctx, document.getElementById('new-for')?.value || ''),
     del: async (el, ctx) => {
       const a = ctx.state.assessments.find(x => x.id === el.dataset.id);

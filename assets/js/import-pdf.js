@@ -25,6 +25,20 @@ function loadTesseract() {
   return tessPromise;
 }
 
+// Every page's text as lines, without OCR (subject outlines always carry a text layer).
+export async function pdfLines(file) {
+  const pdfjs = await loadPdfJs();
+  let doc;
+  try {
+    doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
+  } catch (e) {
+    throw new Error(e && e.name === 'PasswordException' ? 'This PDF is password protected.' : 'That file could not be read as a PDF.');
+  }
+  const lines = [];
+  for (let p = 1; p <= Math.min(doc.numPages, 40); p++) lines.push(...itemsToLines((await (await doc.getPage(p)).getTextContent()).items));
+  return lines.join('\n');
+}
+
 async function readFile(file, onProgress, known) {
   const isImage = /^image\//.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name);
   let text = '', source = 'text';

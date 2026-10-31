@@ -83,8 +83,8 @@
         if (done || (document.getElementById('view') || {}).children && document.getElementById('view').children.length) return;
         try { if (sessionStorage.getItem('gpawam.repaired')) return; sessionStorage.setItem('gpawam.repaired', '1'); } catch (e) { return; }
         done = true;
-        var js = ['app', 'engine', 'state', 'ui', 'charts', 'export', 'palette', 'gestures', 'native', 'mysr-parser', 'import-pdf',
-          'views/dashboard', 'views/subjects', 'views/assessments', 'views/insights', 'views/scanner', 'views/planner', 'views/degree', 'views/summary', 'views/history', 'views/settings'];
+        var js = ['app', 'engine', 'state', 'ui', 'charts', 'export', 'palette', 'gestures', 'native', 'mysr-parser', 'import-pdf', 'study', 'timer', 'lock', 'outline-parser', 'import-outline',
+          'views/dashboard', 'views/subjects', 'views/assessments', 'views/study', 'views/insights', 'views/scanner', 'views/planner', 'views/degree', 'views/summary', 'views/history', 'views/settings'];
         var files = js.map(function (f) { return 'assets/js/' + f + '.js'; }).concat(['assets/css/app.css', 'assets/data/subjects.js', 'assets/data/handbook.js', './']);
         Promise.all(files.map(function (f) { return fetch(f, { cache: 'reload' }).catch(function () {}); })).then(function () { location.reload(); });
       }

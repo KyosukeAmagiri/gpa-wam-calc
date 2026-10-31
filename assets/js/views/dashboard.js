@@ -1,5 +1,6 @@
 import { html, raw, icon, fmt, fmtPct, fmtSigned, fmtDate, meter, gradePillFor, chip, series, isNum, cssVar } from '../ui.js';
 import { lineChart, columnChart, legend } from '../charts.js';
+import { awaitingMarks } from '../study.js';
 
 function welcome(ctx) {
   return html`
@@ -33,7 +34,9 @@ export default {
     const mc = E.mc, sc = E.scanner, plan = E.plan;
     const deadlines = E.dueList.slice(0, 8);
     const kindOf = d => (d < 0 ? 'critical' : d <= 7 ? 'warning' : 'neutral');
+    const back = awaitingMarks(E);
     return html`
+    ${back.length ? html`<section class="callout warn nudge">${icon('check')}<span><b>Got ${back.length === 1 ? 'this mark' : 'these marks'} back?</b> ${back.slice(0, 4).map(a => `${a.code} ${a.name}`).join(', ')}${back.length > 4 ? ` and ${back.length - 4} more` : ''} ${back.length === 1 ? 'was' : 'were'} due over a week ago with no mark yet. <a href="#/assessments">Enter ${back.length === 1 ? 'it' : 'them'}</a> to keep your WAM current.</span></section>` : ''}
     <section class="kpis">
       <div class="card kpi hero">
         <div class="label">Overall WAM</div>
