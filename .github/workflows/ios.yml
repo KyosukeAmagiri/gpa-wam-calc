@@ -50,6 +50,10 @@ jobs:
           # the app's web view controller becomes MainViewController, which registers the WidgetBridge plugin
           sed -i '' 's/customClass="CAPBridgeViewController" customModule="Capacitor"/customClass="MainViewController" customModule="App" customModuleProvider="target"/' ios/App/App/Base.lproj/Main.storyboard
           grep -c 'customClass="MainViewController"' ios/App/App/Base.lproj/Main.storyboard
+          # the bridge also registers every class in packageClassList at start-up, the same way it loads the npm plugins
+          node -e "const f='ios/App/App/capacitor.config.json',fs=require('fs'),c=JSON.parse(fs.readFileSync(f));c.packageClassList=[...new Set([...(c.packageClassList||[]),'WidgetBridgePlugin'])];fs.writeFileSync(f,JSON.stringify(c,null,2))"
+          cat ios/App/App/capacitor.config.json
+          ls ios/App/App
           gem install xcodeproj --no-document || sudo gem install xcodeproj --no-document
           ruby native/setup.rb
 
@@ -97,7 +101,8 @@ jobs:
             const P = n => C.Plugins[n] || (C.registerPlugin && C.registerPlugin(n)) || new Proxy({}, { get: (_, m) => (o = {}) => C.nativePromise(n, m, o) });
             const t = async (label, f) => { try { out.push(label + ': ' + JSON.stringify(await Promise.race([f(), new Promise((_, no) => setTimeout(() => no(new Error('no reply in 4s')), 4000))]))); } catch (e) { out.push(label + ' FAILED: ' + (e.message || e)); } };
             out.push('Capacitor keys: ' + Object.keys(C).join(','));
-            out.push('headers: ' + (C.PluginHeaders || []).map(h => h.name).join(','));
+            out.push('headers: ' + (C.PluginHeaders || []).map(h => h.name).join(', '));
+            out.push('WidgetBridge in Plugins: ' + !!C.Plugins.WidgetBridge + ', in headers: ' + (C.PluginHeaders || []).some(h => h.name === 'WidgetBridge'));
             await t('native', () => C.isNativePlatform());
             await t('nativePromise', () => typeof C.nativePromise);
             await t('widget update', () => P('WidgetBridge').update({ summary: JSON.stringify({ wam: 78.06, gpa: 5.813, maxGPA: 7, grade: 'D', classification: 'Test', cp: 160, totalCP: 240, targetWAM: 80, targetGPA: 6.3, nextCode: null, nextName: null, nextDue: null, dueSoon: 0 }) }));
@@ -120,9 +125,11 @@ jobs:
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
           xcrun simctl install "$udid" simbuild/Build/Products/Debug-iphonesimulator/App.app
-          xcrun simctl launch "$udid" com.kyosukeamagiri.gpawam
+          xcrun simctl launch --stdout="$PWD/sim-out.txt" --stderr="$PWD/sim-err.txt" "$udid" com.kyosukeamagiri.gpawam
           sleep 45
           xcrun simctl io "$udid" screenshot simulator.png
+          echo '--- app console ---'
+          cat sim-out.txt sim-err.txt 2>/dev/null | grep -vE '^\s*$' | head -n 80 || true
           xcrun simctl spawn "$udid" log show --last 3m --style compact --predicate 'process == "App"' 2>/dev/null | grep -iE 'plugin|capacitor|⚡|WidgetBridge|error' | tail -n 60 || true
 
       - uses: actions/upload-artifact@v4
