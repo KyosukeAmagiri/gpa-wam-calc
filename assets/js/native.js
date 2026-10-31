@@ -88,8 +88,10 @@ export async function setReminders(on) {
 export async function nativeStatus() {
   const LN = nativePlugin('LocalNotifications'), bridge = nativePlugin('WidgetBridge');
   const out = { notifications: 'unavailable', pending: 0, widget: 'unavailable' };
-  try { if (LN) { out.notifications = (await LN.checkPermissions()).display; out.pending = (await LN.getPending()).notifications.length; } } catch (e) { /* plugin missing */ }
-  try { if (bridge) { const r = await bridge.status(); out.widget = r.shared ? 'connected' : 'not shared'; } } catch (e) { /* plugin missing */ }
+  // a plugin that is missing on the native side never answers, so every check gives up after a few seconds
+  const within = p => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 3000))]);
+  try { if (LN) { out.notifications = (await within(LN.checkPermissions())).display; out.pending = (await within(LN.getPending())).notifications.length; } } catch (e) { /* plugin missing */ }
+  try { if (bridge) { const r = await within(bridge.status()); out.widget = r.shared ? 'connected' : 'not shared'; } } catch (e) { /* plugin missing */ }
   return out;
 }
 
