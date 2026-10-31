@@ -164,7 +164,16 @@ export const statusKind = s => ({ Completed: 'good', 'In Progress': 'info', Plan
 // True inside the iPhone app build, where the page runs in a native wrapper.
 export const isNativeApp = () => !!window.Capacitor?.isNativePlatform?.();
 // A native plugin's JavaScript proxy (Filesystem, Share, LocalNotifications, WidgetBridge), or undefined outside the app.
-export const nativePlugin = name => (isNativeApp() ? window.Capacitor.Plugins?.[name] || window.Capacitor.registerPlugin?.(name) : undefined);
+// Plugins registered inside the app (like WidgetBridge) are not listed in Capacitor.Plugins, so those calls go
+// straight through the bridge by name.
+export const nativePlugin = name => {
+  if (!isNativeApp()) return undefined;
+  const C = window.Capacitor;
+  if (C.Plugins?.[name]) return C.Plugins[name];
+  if (C.registerPlugin) return C.registerPlugin(name);
+  if (C.nativePromise) return new Proxy({}, { get: (_, method) => (method === 'then' ? undefined : (opts = {}) => C.nativePromise(name, method, opts)) });
+  return undefined;
+};
 
 // Apps cannot download files, so the iPhone app writes the file to its cache and opens the share sheet
 // (Save to Files, AirDrop, Mail and so on) instead.

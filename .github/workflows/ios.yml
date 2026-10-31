@@ -93,9 +93,12 @@ jobs:
           <script>
           window.addEventListener('load', () => setTimeout(async () => {
             location.hash = '#/settings';
-            const C = window.Capacitor, P = n => C.Plugins[n] || C.registerPlugin(n), out = ['SELF-TEST'];
+            const C = window.Capacitor, out = ['SELF-TEST'];
+            const P = n => C.Plugins[n] || (C.registerPlugin && C.registerPlugin(n)) || new Proxy({}, { get: (_, m) => (o = {}) => C.nativePromise(n, m, o) });
             const t = async (label, f) => { try { out.push(label + ': ' + JSON.stringify(await f())); } catch (e) { out.push(label + ' FAILED: ' + (e.message || e)); } };
             await t('native', () => C.isNativePlatform());
+            await t('nativePromise', () => typeof C.nativePromise);
+            await t('widget update', () => P('WidgetBridge').update({ summary: JSON.stringify({ wam: 78.06, gpa: 5.813, maxGPA: 7, grade: 'D', classification: 'Test', cp: 160, totalCP: 240, targetWAM: 80, targetGPA: 6.3, nextCode: null, nextName: null, nextDue: null, dueSoon: 0 }) }));
             await t('widget status', () => P('WidgetBridge').status());
             await t('notifications', () => P('LocalNotifications').checkPermissions());
             await t('pending', () => P('LocalNotifications').getPending().then(r => r.notifications.length));
