@@ -1,0 +1,14 @@
+{
+  "name": "gpa-wam-ios",
+  "private": true,
+  "description": "iPhone app wrapper for the GPA and WAM Calculator. Built on GitHub Actions by .github/workflows/ios.yml.",
+  "dependencies": {
+    "@capacitor/core": "8.6.0",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/ios": "8.6.0",
+    "@capacitor/share": "8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0"
+  }
+}

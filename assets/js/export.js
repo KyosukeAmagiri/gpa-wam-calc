@@ -1,5 +1,5 @@
 // Backups and exports: JSON (full restore), CSV and a dependency-free .xlsx writer.
-import { download, todayISO, toast } from './ui.js';
+import { download, todayISO, toast, isNativeApp } from './ui.js';
 import { sessionName, termLabel } from './engine.js';
 
 const stamp = () => todayISO();
@@ -45,7 +45,9 @@ const pipe = (bytes, stream) => new Response(new Blob([bytes]).stream().pipeThro
 export async function makeTransferLink(state) {
   let bytes = new TextEncoder().encode(JSON.stringify(state)), flag = 'j';
   if (typeof CompressionStream === 'function') { bytes = await pipe(bytes, new CompressionStream('deflate-raw')); flag = 'z'; }
-  return `${location.origin}${location.pathname}#sync=${flag}${toB64url(bytes)}`;
+  // inside the iPhone app the page's own address is not reachable from other devices, so links point at the website
+  const base = isNativeApp() ? 'https://kyosukeamagiri.github.io/gpa-wam-calc/' : `${location.origin}${location.pathname}`;
+  return `${base}#sync=${flag}${toB64url(bytes)}`;
 }
 
 export async function readTransferLink(payload) {

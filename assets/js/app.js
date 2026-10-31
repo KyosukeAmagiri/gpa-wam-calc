@@ -1,6 +1,6 @@
 import { compute, num, cleanCode } from './engine.js';
 import { loadState, saveState, flushSave, STATE_KEY, normaliseState, defaultState, sampleState, storageAvailable, clearStored, uid } from './state.js';
-import { html, icon, toast, confirmDialog, openModal, fmt, fmtSigned } from './ui.js';
+import { html, icon, toast, confirmDialog, openModal, fmt, fmtSigned, isNativeApp } from './ui.js';
 import SUBJECTS from '../data/subjects.js';
 import * as exporter from './export.js';
 import { openPalette } from './palette.js';
@@ -361,7 +361,7 @@ export function runExport(kind) {
     else if (kind === 'csv-subjects') exporter.exportSubjectsCSV(E);
     else if (kind === 'csv-assess') exporter.exportAssessmentsCSV(E);
     else if (kind === 'ics') exporter.exportCalendar(E);
-    else if (kind === 'print') { go('summary'); setTimeout(() => window.print(), 400); }
+    else if (kind === 'print') { go('summary'); if (isNativeApp()) toast('Printing is not available inside the app. Open the summary on the website to print or save it as a PDF.', 'info', 6000); else setTimeout(() => window.print(), 400); }
   } catch (err) {
     console.error(err);
     toast('Export failed: ' + err.message, 'error');

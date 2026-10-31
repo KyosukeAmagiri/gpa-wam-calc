@@ -1,0 +1,9 @@
+node_modules/
+package-lock.json
+www/
+ios/
+build/
+simbuild/
+Payload/
+*.ipa
+simulator.png
