@@ -4,13 +4,13 @@ const EDGE = 24; // px from the left edge where an opening swipe can start
 
 export function enableMenuGestures() {
   const side = document.getElementById('side');
-  const narrow = window.matchMedia('(max-width: 980px)');
+  const narrow = () => window.innerWidth <= 980; // checked per swipe, matching the CSS breakpoint where the menu slides in
   const isOpen = () => document.body.classList.contains('nav-open');
   const width = () => side.getBoundingClientRect().width || 272;
   let drag = null;
 
   document.addEventListener('touchstart', e => {
-    if (!narrow.matches || e.touches.length !== 1 || document.querySelector('.modal-wrap, .pal-wrap')) return;
+    if (!narrow() || e.touches.length !== 1 || document.querySelector('.modal-wrap, .pal-wrap')) return;
     const t = e.touches[0];
     if (!isOpen() && t.clientX > EDGE) return;
     drag = { x: t.clientX, y: t.clientY, open: isOpen(), dx: 0, decided: false, horizontal: false };

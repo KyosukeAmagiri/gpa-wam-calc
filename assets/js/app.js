@@ -540,6 +540,7 @@ applyTheme();
 recompute();
 if (!storageAvailable()) setTimeout(() => toast('This browser is blocking local storage, so changes will not be kept after you close the tab. Use Export → Back up.', 'error', 7000), 600);
 if (location.hash.startsWith('#sync=')) receiveTransfer(); else onRoute();
+try { sessionStorage.removeItem('gpawam.repaired'); } catch (e) { /* storage blocked */ } // started fine, so a future update can self-repair again
 
 // Subject-code autocomplete, built once in idle time.
 (window.requestIdleCallback || (f => setTimeout(f, 800)))(() => {

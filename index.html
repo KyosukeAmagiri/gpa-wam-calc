@@ -72,6 +72,25 @@
   </div>
   <input type="file" id="file-json" accept="application/json,.json" hidden>
   <noscript><p style="padding:24px">This calculator needs JavaScript enabled.</p></noscript>
+  <script>
+    // Self-repair: just after an update a browser can pair new and old cached script files, which stops the app loading.
+    // On a script error, or if nothing has rendered after a few seconds, fetch fresh copies once and reload.
+    // (Keep this list in step with the files in assets/js.)
+    (function () {
+      var done = false;
+      function repair() {
+        if (done || (document.getElementById('view') || {}).children && document.getElementById('view').children.length) return;
+        try { if (sessionStorage.getItem('gpawam.repaired')) return; sessionStorage.setItem('gpawam.repaired', '1'); } catch (e) { return; }
+        done = true;
+        var js = ['app', 'engine', 'state', 'ui', 'charts', 'export', 'palette', 'gestures', 'native', 'mysr-parser', 'import-pdf',
+          'views/dashboard', 'views/subjects', 'views/assessments', 'views/insights', 'views/scanner', 'views/planner', 'views/degree', 'views/summary', 'views/history', 'views/settings'];
+        var files = js.map(function (f) { return 'assets/js/' + f + '.js'; }).concat(['assets/css/app.css', 'assets/data/subjects.js', 'assets/data/handbook.js', './']);
+        Promise.all(files.map(function (f) { return fetch(f, { cache: 'reload' }).catch(function () {}); })).then(function () { location.reload(); });
+      }
+      window.addEventListener('error', function (e) { if (e && /export|module|import/i.test(e.message || '')) setTimeout(repair, 300); });
+      setTimeout(repair, 8000);
+    })();
+  </script>
   <script type="module" src="assets/js/app.js"></script>
 </body>
 </html>
