@@ -73,10 +73,11 @@
   <input type="file" id="file-json" accept="application/json,.json" hidden>
   <noscript><p style="padding:24px">This calculator needs JavaScript enabled.</p></noscript>
   <script>
-    // Self-repair: just after an update a browser can pair new and old cached script files, which stops the app loading.
-    // On a script error, or if nothing has rendered after a few seconds, fetch fresh copies once and reload.
-    // (Keep this list in step with the files in assets/js.)
+    // Self-repair: just after an update a browser can pair new and old cached script files, which stops the app loading
+    // with a module error. When that happens, fetch fresh copies once and reload. (Keep this list in step with assets/js.)
+    // Slowness alone never triggers it, and the iPhone app bundles its files together, so it is off there.
     (function () {
+      if (window.Capacitor) return;
       var done = false;
       function repair() {
         if (done || (document.getElementById('view') || {}).children && document.getElementById('view').children.length) return;
@@ -87,8 +88,7 @@
         var files = js.map(function (f) { return 'assets/js/' + f + '.js'; }).concat(['assets/css/app.css', 'assets/data/subjects.js', 'assets/data/handbook.js', './']);
         Promise.all(files.map(function (f) { return fetch(f, { cache: 'reload' }).catch(function () {}); })).then(function () { location.reload(); });
       }
-      window.addEventListener('error', function (e) { if (e && /export|module|import/i.test(e.message || '')) setTimeout(repair, 300); });
-      setTimeout(repair, 8000);
+      window.addEventListener('error', function (e) { if (e && /does not provide an export|module|import/i.test(e.message || '')) setTimeout(repair, 300); });
     })();
   </script>
   <script type="module" src="assets/js/app.js"></script>

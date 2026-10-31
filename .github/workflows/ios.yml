@@ -110,7 +110,7 @@ jobs:
             d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:999;background:#000;color:#3f3;font:13px monospace;padding:12px 12px 40px;white-space:pre-wrap;margin:0';
             d.textContent = out.join(String.fromCharCode(10));
             document.body.appendChild(d);
-          }, 5000));
+          }, 12000));
           </script>
           HTML
           if [ -d ios/App/App.xcworkspace ]; then C="-workspace ios/App/App.xcworkspace"; else C="-project ios/App/App.xcodeproj"; fi
@@ -121,7 +121,7 @@ jobs:
           xcrun simctl bootstatus "$udid" -b
           xcrun simctl install "$udid" simbuild/Build/Products/Debug-iphonesimulator/App.app
           xcrun simctl launch "$udid" com.kyosukeamagiri.gpawam
-          sleep 28
+          sleep 45
           xcrun simctl io "$udid" screenshot simulator.png
           xcrun simctl spawn "$udid" log show --last 3m --style compact --predicate 'process == "App"' 2>/dev/null | grep -iE 'plugin|capacitor|⚡|WidgetBridge|error' | tail -n 60 || true
 
