@@ -41,6 +41,7 @@
       </a>
       <nav class="nav" id="nav"></nav>
       <div class="side-foot">
+        <div id="side-status"></div>
         <div class="privacy"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.4 8.2 8 9 4.6-.8 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span>Your marks are saved only in this browser. Nothing is uploaded.</span></div>
       </div>
     </aside>
@@ -83,7 +84,7 @@
         if (done || (document.getElementById('view') || {}).children && document.getElementById('view').children.length) return;
         try { if (sessionStorage.getItem('gpawam.repaired')) return; sessionStorage.setItem('gpawam.repaired', '1'); } catch (e) { return; }
         done = true;
-        var js = ['app', 'engine', 'state', 'ui', 'charts', 'export', 'palette', 'gestures', 'native', 'mysr-parser', 'import-pdf', 'study', 'timer', 'lock', 'outline-parser', 'import-outline',
+        var js = ['app', 'engine', 'state', 'ui', 'charts', 'export', 'palette', 'gestures', 'native', 'mysr-parser', 'import-pdf', 'study', 'timer', 'lock', 'fx', 'outline-parser', 'import-outline',
           'views/dashboard', 'views/subjects', 'views/assessments', 'views/study', 'views/insights', 'views/scanner', 'views/planner', 'views/degree', 'views/summary', 'views/history', 'views/settings'];
         var files = js.map(function (f) { return 'assets/js/' + f + '.js'; }).concat(['assets/css/app.css', 'assets/data/subjects.js', 'assets/data/handbook.js', './']);
         Promise.all(files.map(function (f) { return fetch(f, { cache: 'reload' }).catch(function () {}); })).then(function () { location.reload(); });

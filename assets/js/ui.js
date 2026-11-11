@@ -66,19 +66,30 @@ export const SERIES = {
 export const series = i => (isDark() ? SERIES.dark : SERIES.light)[i % 4];
 
 // ---------- toasts ----------
-export function toast(msg, kind = 'info', ms = 3200) {
+// action: an optional { label, run } button, e.g. Undo
+export function toast(msg, kind = 'info', ms = 3200, action = null) {
   let host = document.getElementById('toasts');
   if (!host) { host = document.createElement('div'); host.id = 'toasts'; host.setAttribute('role', 'status'); document.body.appendChild(host); }
   const t = document.createElement('div');
   t.className = `toast toast-${kind}`;
   t.textContent = msg;
+  const gone = () => { t.classList.remove('in'); setTimeout(() => t.remove(), 300); };
+  if (action) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = action.label;
+    b.addEventListener('click', () => { gone(); action.run(); });
+    t.classList.add('has-action');
+    t.appendChild(b);
+  }
   host.appendChild(t);
   requestAnimationFrame(() => t.classList.add('in'));
-  setTimeout(() => { t.classList.remove('in'); setTimeout(() => t.remove(), 300); }, ms);
+  setTimeout(gone, ms);
 }
 
 // ---------- modal ----------
-export function openModal({ title, body, actions = [], wide = false, onMount, dismissable = true }) {
+export function openModal({ title, body, actions = [], wide = false, onMount, onClose, dismissable = true }) {
+  const opener = document.activeElement;
   const wrap = document.createElement('div');
   wrap.className = 'modal-wrap';
   wrap.innerHTML = html`<div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-label="${title}">
@@ -88,7 +99,14 @@ export function openModal({ title, body, actions = [], wide = false, onMount, di
   const bodyEl = wrap.querySelector('.modal-body');
   if (body instanceof Node) bodyEl.appendChild(body); else bodyEl.innerHTML = String(body ?? '');
   const foot = wrap.querySelector('.modal-foot');
-  const close = () => { wrap.classList.remove('in'); document.removeEventListener('keydown', onKey); setTimeout(() => wrap.remove(), 200); };
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    wrap.classList.remove('in'); document.removeEventListener('keydown', onKey); setTimeout(() => wrap.remove(), 200);
+    onClose && onClose();
+    if (opener && opener.isConnected && opener.focus) opener.focus({ preventScroll: true }); // hand focus back to what opened it
+  };
   actions.forEach(a => {
     const b = document.createElement('button');
     b.className = `btn ${a.kind || ''}`;
@@ -98,7 +116,16 @@ export function openModal({ title, body, actions = [], wide = false, onMount, di
     foot.appendChild(b);
   });
   if (!actions.length) foot.remove();
-  const onKey = e => { if (e.key === 'Escape' && dismissable) close(); };
+  const onKey = e => {
+    if (e.key === 'Escape' && dismissable) { close(); return; }
+    if (e.key !== 'Tab' || wrap !== document.querySelector('.modal-wrap:last-of-type')) return;
+    // keep Tab inside the dialog
+    const f = [...wrap.querySelectorAll('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')].filter(el => !el.disabled && el.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
   document.addEventListener('keydown', onKey);
   wrap.addEventListener('click', e => { if (dismissable && (e.target === wrap || e.target.closest('[data-close]'))) close(); });
   document.body.appendChild(wrap);
@@ -111,11 +138,14 @@ export function openModal({ title, body, actions = [], wide = false, onMount, di
 
 export function confirmDialog(title, message, confirmLabel = 'Confirm', danger = false) {
   return new Promise(resolve => {
+    let answer = false;
     openModal({
       title, body: html`<p class="lede">${message}</p>`.s,
+      // closing with Escape, the X or a click outside counts as Cancel, so the caller is never left waiting
+      onClose: () => resolve(answer),
       actions: [
-        { label: 'Cancel', onClick: () => resolve(false) },
-        { label: confirmLabel, kind: danger ? 'danger' : 'primary', onClick: () => resolve(true) },
+        { label: 'Cancel' },
+        { label: confirmLabel, kind: danger ? 'danger' : 'primary', onClick: () => { answer = true; } },
       ],
     });
   });
@@ -202,4 +232,15 @@ export function download(filename, content, type = 'application/octet-stream') {
 export function meter(value, { max = 1, kind = 'brand', label = '' } = {}) {
   const p = isNum(value) && max ? Math.max(0, Math.min(1, value / max)) : 0;
   return html`<div class="meter meter-${kind}" role="meter" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${isNum(value) ? value : 0}" aria-label="${label}"><span style="width:${(p * 100).toFixed(1)}%"></span></div>`;
+}
+
+// A circular progress ring. value 0–1; mark (0–1) draws a tick, e.g. where the target sits.
+export function ring(value, { size = 120, stroke = 10, mark = null, label = '' } = {}) {
+  const p = isNum(value) ? Math.max(0, Math.min(1, value)) : 0;
+  const c = size / 2, r = (size - stroke) / 2 - 2, len = 2 * Math.PI * r;
+  const tick = isNum(mark) && mark > 0 && mark <= 1
+    ? html`<line class="ring-mark" x1="${c}" y1="${c - r - stroke / 2 - 2}" x2="${c}" y2="${c - r + stroke / 2 + 2}" transform="rotate(${(mark * 360).toFixed(1)} ${c} ${c})"/>` : '';
+  return html`<svg class="ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="${label}">
+    <circle class="ring-track" cx="${c}" cy="${c}" r="${r}" fill="none" stroke-width="${stroke}"/>
+    <circle class="ring-arc" cx="${c}" cy="${c}" r="${r}" fill="none" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${len.toFixed(1)}" stroke-dashoffset="${(len * (1 - p)).toFixed(1)}" style="--len:${len.toFixed(1)}" transform="rotate(-90 ${c} ${c})"/>${tick}</svg>`;
 }

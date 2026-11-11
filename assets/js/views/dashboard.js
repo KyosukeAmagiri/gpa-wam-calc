@@ -1,6 +1,6 @@
-import { html, raw, icon, fmt, fmtPct, fmtSigned, fmtDate, meter, gradePillFor, chip, series, isNum, cssVar } from '../ui.js';
+import { html, raw, icon, fmt, fmtPct, fmtSigned, fmtDate, meter, ring, gradePillFor, chip, series, isNum, cssVar } from '../ui.js';
 import { lineChart, columnChart, legend } from '../charts.js';
-import { awaitingMarks } from '../study.js';
+import { awaitingMarks, studyPlan, crunchWeeks } from '../study.js';
 
 function welcome(ctx) {
   return html`
@@ -35,38 +35,51 @@ export default {
     const deadlines = E.dueList.slice(0, 8);
     const kindOf = d => (d < 0 ? 'critical' : d <= 7 ? 'warning' : 'neutral');
     const back = awaitingMarks(E);
+    const gap = S.targetWAM - m.WAM;
     return html`
     ${back.length ? html`<section class="callout warn nudge">${icon('check')}<span><b>Got ${back.length === 1 ? 'this mark' : 'these marks'} back?</b> ${back.slice(0, 4).map(a => `${a.code} ${a.name}`).join(', ')}${back.length > 4 ? ` and ${back.length - 4} more` : ''} ${back.length === 1 ? 'was' : 'were'} due over a week ago with no mark yet. <a href="#/assessments">Enter ${back.length === 1 ? 'it' : 'them'}</a> to keep your WAM current.</span></section>` : ''}
-    <section class="kpis">
+    <section class="kpis dash">
       <div class="card kpi hero">
-        <div class="label">Overall WAM</div>
-        <div class="value">${hasMarks ? fmt(m.WAM, 2) : '—'} ${hasMarks ? gradePillFor(E, m.WAM) : ''}</div>
-        <div class="sub">${hasMarks ? html`Target ${fmt(S.targetWAM, 1)} · ${fmtPct(m.WAM_PCT_TARGET)} of the way` : 'Add a mark to see your WAM'}</div>
-        ${meter(m.WAM_PCT_TARGET, { label: 'WAM toward target' })}
+        <div class="hero-main">
+          <div class="label">Overall WAM ${hasMarks ? gradePillFor(E, m.WAM) : ''}</div>
+          <div class="value">${hasMarks ? fmt(m.WAM, 2) : '—'}</div>
+          <div class="sub">${hasMarks ? (gap <= 0 ? html`${fmt(-gap, 2)} above your ${fmt(S.targetWAM, 1)} target` : html`${fmt(gap, 2)} to go to your ${fmt(S.targetWAM, 1)} target`) : 'Add a mark to see your WAM'}</div>
+          ${hasMarks ? html`<div class="hero-chips">
+            <span>GPA <b>${fmt(m.GPA, 3)}</b></span>
+            ${m.CLASS && m.CLASS.name ? html`<span>${m.CLASS.badge} ${m.CLASS.name}</span>` : ''}
+            ${mc.hasRemaining ? html`<span title="Median of the Monte Carlo projection">Projected <b>${fmt(mc.p50, 1)}</b></span>` : ''}
+          </div>` : ''}
+        </div>
+        <div class="hero-ring" aria-hidden="${hasMarks ? 'false' : 'true'}">
+          ${ring(hasMarks ? m.WAM / 100 : 0, { size: 148, stroke: 12, mark: S.targetWAM ? S.targetWAM / 100 : null, label: `WAM ${fmt(m.WAM, 1)} out of 100, target ${fmt(S.targetWAM, 1)}` })}
+          <div class="ring-mid"><b>${hasMarks ? fmtPct(m.WAM_PCT_TARGET) : '—'}</b><small>of target</small></div>
+        </div>
       </div>
       <div class="card kpi">
-        <div class="label">Overall GPA</div>
+        <div class="label"><span class="kpi-ico">${icon('insights', 16)}</span>Overall GPA</div>
         <div class="value">${hasMarks ? fmt(m.GPA, 3) : '—'}<small>/ ${E.maxGPA}</small></div>
         <div class="sub">${fmtPct(m.GPA_PCT)} of max · target ${fmt(S.targetGPA, 2)}</div>
         ${meter(m.GPA_PCT_TARGET, { label: 'GPA toward target' })}
       </div>
       <div class="card kpi">
-        <div class="label">Credit points</div>
+        <div class="label"><span class="kpi-ico">${icon('map', 16)}</span>Credit points</div>
         <div class="value">${fmt(m.CP_DONE, 0)}<small>/ ${fmt(S.totalCP, 0)}</small></div>
         <div class="sub">${fmtPct(m.CP_PCT, 1)} of degree complete</div>
         ${meter(m.CP_PCT, { label: 'Degree progress' })}
       </div>
       <div class="card kpi">
-        <div class="label">Subjects done</div>
-        <div class="value">${m.SUBJ_DONE}</div>
+        <div class="label"><span class="kpi-ico">${icon('book', 16)}</span>Subjects done</div>
+        <div class="value">${m.SUBJ_DONE}<small>/ ${m.SUBJ_TOTAL}</small></div>
         <div class="sub">${m.SUBJ_IP} in progress · ${m.SUBJ_PLAN} planned</div>
+        ${meter(m.SUBJ_TOTAL ? m.SUBJ_DONE / m.SUBJ_TOTAL : 0, { label: 'Subjects completed' })}
       </div>
       <div class="card kpi">
-        <div class="label">Classification</div>
-        <div class="value" style="font-size:20px;line-height:1.3">${hasMarks ? `${m.CLASS.badge} ${m.CLASS.name}` : '—'}</div>
+        <div class="label"><span class="kpi-ico">${icon('shield', 16)}</span>Classification</div>
+        <div class="value cls">${hasMarks ? `${m.CLASS.badge} ${m.CLASS.name}` : '—'}</div>
         <div class="sub">${hasMarks ? text.NEXT_TEXT.replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, '') : ''}</div>
       </div>
     </section>
+    ${today(E, state)}
 
     <section class="insight-strip">
       <div class="card insight"><span class="em">${text.TREND_TEXT.split(' ')[0]}</span><div><b>Trend</b><span>${text.TREND_TEXT.replace(/^\S+\s/, '')}</span></div></div>
@@ -215,4 +228,38 @@ function goal(label, val, p, kind = 'brand') {
 function stat(k, v) { return html`<div class="r"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
 function odds(k, sub, p) {
   return html`<div class="r"><span class="k">${k}<br><small class="muted">${sub}</small></span><span class="v" style="min-width:140px"><span style="font-size:18px">${fmtPct(p, 1)}</span>${meter(p, { label: k })}</span></div>`;
+}
+
+// What matters today: the next deadline, the study the plan sets aside for today, and the next crunch week.
+function today(E, state) {
+  const next = E.dueList.find(a => a.days >= 0);
+  if (!next && !E.dueList.length) return '';
+  const late = E.dueList.filter(a => a.days < 0).length;
+  const plan = studyPlan(E, state), now = plan.days[0];
+  const hours = now ? now.total : 0;
+  const crunch = crunchWeeks(E).weeks.find(w => !w.past && w.level === 'crunch');
+  const t = state.prefs.timer;
+  const day = d => d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+  return html`<section class="card today">
+    <div class="td-col">
+      <span class="eyebrow">Next deadline</span>
+      ${next ? html`<div class="td-big"><b>${next.days === 0 ? 'Today' : next.days}</b>${next.days === 0 ? '' : html`<small>day${next.days === 1 ? '' : 's'}</small>`}</div>
+        <div class="td-what"><b>${next.code}</b> ${next.name}${next.weight !== '' ? html` <span class="muted">· ${fmt(next.weight, 0)}%</span>` : ''}</div>`
+        : html`<div class="td-what muted">Nothing upcoming</div>`}
+      ${late ? html`<a class="td-link warn" href="#/assessments">${late} past due without a mark</a>` : ''}
+    </div>
+    <div class="td-col">
+      <span class="eyebrow">Study today</span>
+      ${hours ? html`<div class="td-big"><b>${fmt(hours, hours % 1 ? 1 : 0)}</b><small>hour${hours === 1 ? '' : 's'} planned</small></div>
+        <div class="td-what">${now.sessions.map(x => html`<span class="td-s"><b>${fmt(x.hours, x.hours % 1 ? 1 : 0)}h</b> ${x.a.code} ${x.a.name}</span>`)}</div>`
+        : html`<div class="td-what muted">${plan.items.length ? 'Nothing scheduled today. Enjoy the break.' : 'Add due dates and weights to get a plan.'}</div>`}
+      <a class="td-link" href="#/study">${t ? html`Timer running: ${t.label}` : 'Open the study planner'} ${icon('chevron', 13)}</a>
+    </div>
+    <div class="td-col">
+      <span class="eyebrow">Crunch watch</span>
+      ${crunch ? html`<div class="td-big hot"><b>${fmt(crunch.weight, 0)}%</b><small>of marks across ${crunch.items.length} item${crunch.items.length === 1 ? '' : 's'}</small></div>
+        <div class="td-what">${crunch.now ? 'This week' : `Week of ${day(crunch.start)}`}: ${crunch.items.map(a => `${a.code} ${a.name}`).join(', ')}</div>`
+        : html`<div class="td-big calm"><b>Clear</b></div><div class="td-what muted">No week ahead is overloaded.</div>`}
+    </div>
+  </section>`;
 }

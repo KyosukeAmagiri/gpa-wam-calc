@@ -1,6 +1,7 @@
 import { compute, num, cleanCode } from './engine.js';
 import { loadState, saveState, flushSave, STATE_KEY, normaliseState, defaultState, sampleState, storageAvailable, clearStored, uid } from './state.js';
-import { html, icon, toast, confirmDialog, openModal, fmt, fmtSigned, isNativeApp } from './ui.js';
+import { html, icon, toast, confirmDialog, openModal, fmt, fmtSigned, isNativeApp, ring } from './ui.js';
+import { enableSpotlight, confetti } from './fx.js';
 import SUBJECTS from '../data/subjects.js';
 import * as exporter from './export.js';
 import { openPalette } from './palette.js';
@@ -67,13 +68,49 @@ function persist() {
     el.querySelector('span').textContent = ok ? 'Saved on this device' : 'Not saved (storage blocked)';
   });
 }
+// ---------- undo ----------
+// Every change to the record (not to preferences, the timer or logged study time) can be stepped back and forward.
+const UNDO_MAX = 50;
+let undoStack = [], redoStack = [];
+const recordKey = s => JSON.stringify({ ...s, prefs: 0, sessions: 0, updatedAt: 0 });
+function restoreRecord(snapshot) {
+  const { prefs, sessions } = state;
+  state = normaliseState(JSON.parse(snapshot));
+  state.prefs = prefs; state.sessions = sessions;
+  persist(); recompute(); render();
+}
+export function undo() {
+  if (!undoStack.length) { toast('Nothing to undo.'); return; }
+  redoStack.push(JSON.stringify(state));
+  restoreRecord(undoStack.pop());
+  toast('Undone.', 'info', 4000, { label: 'Redo', run: redo });
+}
+export function redo() {
+  if (!redoStack.length) { toast('Nothing to redo.'); return; }
+  undoStack.push(JSON.stringify(state));
+  restoreRecord(redoStack.pop());
+  toast('Redone.');
+}
+const rowCount = s => s.subjects.length + s.assessments.length + s.history.length + s.planner.scenario.length;
+// High Distinctions banked so far, across finished subjects and graded assessments
+const hdCount = () => E.m.N_HD + E.assessments.filter(a => a.graded && a.type !== 'Bonus' && a.pct * 100 >= E.S.hdThr).length;
+
 export function update(mutator, { rerender = true } = {}) {
+  const before = JSON.stringify(state), beforeKey = recordKey(state), rows = rowCount(state), hds = E ? hdCount() : 0;
   mutator(state);
+  if (recordKey(state) !== beforeKey) {
+    undoStack.push(before);
+    if (undoStack.length > UNDO_MAX) undoStack.shift();
+    redoStack = [];
+  }
   persist();
   recompute();
   if (rerender) render();
+  if (rowCount(state) < rows) toast('Removed.', 'info', 6000, { label: 'Undo', run: undo });
+  if (hdCount() > hds) { confetti(); toast('High Distinction banked. Nice work!', 'good', 4000); }
 }
 export function replaceState(next) {
+  undoStack = []; redoStack = [];
   sandbox = null; // loading a sample, backup or link is already confirmed, so it ends any sandbox
   state = normaliseState(next);
   applyTheme();
@@ -175,19 +212,26 @@ export function render() {
     const ctx = makeCtx();
     document.getElementById('page-title').textContent = v.title;
     document.getElementById('page-sub').textContent = (v.subtitle && v.subtitle(ctx)) || headline();
-    const entering = route !== shownRoute;
+    const entering = route !== shownRoute, first = shownRoute === null;
     shownRoute = route;
-    viewEl().classList.remove('enter');
-    viewEl().innerHTML = v.render(ctx).s;
-    if (entering) playEntrance(viewEl());
-    v.mount && v.mount(viewEl(), ctx);
-    mountCharts();
-    renderNav();
-    renderSandbox();
-    renderTimerChip(state, { go, onFocusEnd });
+    const paint = () => {
+      viewEl().classList.remove('enter');
+      viewEl().innerHTML = v.render(ctx).s;
+      if (entering) playEntrance(viewEl());
+      v.mount && v.mount(viewEl(), ctx);
+      mountCharts();
+      renderNav();
+      renderSandbox();
+      renderTimerChip(state, { go, onFocusEnd });
+      window.scrollTo(0, scrollY);
+      restoreFocus(focus);
+    };
+    // a page change cross-fades where the browser supports it; edits repaint in place
+    if (entering && !first && document.startViewTransition && !reduceMotion.matches && !document.hidden) {
+      const vt = document.startViewTransition(paint);
+      for (const p of [vt.ready, vt.finished, vt.updateCallbackDone]) p && p.catch(() => {}); // a skipped transition still paints
+    } else paint();
     if (!sandbox) syncNative(state, E); // the widget and reminders follow the saved record, not sandbox experiments
-    window.scrollTo(0, scrollY);
-    restoreFocus(focus);
   }, 0);
 }
 
@@ -242,6 +286,11 @@ function renderNav() {
     ${group ? html`<div class="nav-group">${group}</div>` : html`<div class="nav-group" aria-hidden="true"></div>`}
     ${items.map(([id, label, ic]) => html`<a href="#/${id}" class="${route === id ? 'active' : ''}" ${route === id ? 'aria-current="page"' : ''}>${icon(ic)}<span>${label}</span>${badges[id] ? html`<span class="badge ${warn[id] ? 'warn' : ''}">${badges[id]}</span>` : ''}</a>`)}
   `.s).join('');
+  // the record at a glance, under the menu
+  const m = E.m, has = m.MARK_N > 0, box = document.getElementById('side-status');
+  if (box) box.innerHTML = has ? html`<a href="#/dashboard" class="ss" aria-label="WAM ${fmt(m.WAM, 2)}, GPA ${fmt(m.GPA, 3)}">
+    <span class="ss-ring">${ring(m.WAM / 100, { size: 46, stroke: 5, mark: E.S.targetWAM ? E.S.targetWAM / 100 : null })}<b>${m.GRADE || ''}</b></span>
+    <span class="ss-nums"><span><small>WAM</small><b>${fmt(m.WAM, 2)}</b></span><span><small>GPA</small><b>${fmt(m.GPA, 3)}</b></span></span></a>`.s : '';
 }
 
 // Charts mount into [data-chart] placeholders after the HTML is in place.
@@ -332,6 +381,8 @@ document.getElementById('btn-export').innerHTML = html`${icon('download')}<span 
 document.getElementById('btn-theme').addEventListener('click', () => {
   const dark = document.documentElement.dataset.resolvedTheme === 'dark';
   state.prefs.theme = dark ? 'light' : 'dark';
+  // the theme is a preference, not an experiment, so it is saved even while a sandbox is open
+  if (sandbox) { sandbox.base.prefs.theme = state.prefs.theme; saveState(sandbox.base, () => {}); }
   persist();
   applyTheme();
   render();
@@ -406,6 +457,7 @@ let sandbox = null; // { base: saved state, baseM: its metrics }
 const sandboxChanged = () => sandbox && JSON.stringify({ ...state, updatedAt: 0 }) !== JSON.stringify({ ...sandbox.base, updatedAt: 0 });
 function enterSandbox(quiet = false) {
   flushSave();
+  undoStack = []; redoStack = [];
   sandbox = { base: JSON.parse(JSON.stringify(state)), baseM: E.m };
   persist();
   render();
@@ -438,6 +490,7 @@ async function leaveSandbox(keep) {
   if (!keep && sandboxChanged() && !(await confirmDialog('Discard sandbox changes?', 'Your saved record stays exactly as it was before the sandbox.', 'Discard changes', true))) return;
   const base = sandbox.base;
   sandbox = null;
+  undoStack = []; redoStack = [];
   if (keep) persist();
   else {
     // study time and a running timer are real even in a sandbox, so they carry over
@@ -487,6 +540,8 @@ function paletteItems() {
   act('Import a subject outline (Learning Guide)', 'doc', () => openOutlineImport(makeCtx()), 'assessments weights due dates pdf learning guide unit outline');
   act(sandbox ? 'Leave the sandbox' : 'Start a sandbox (try changes without saving)', 'flask', () => (sandbox ? leaveSandbox(false) : enterSandbox()), 'what if test experiment');
   act(state.prefs.timer ? 'Stop the study timer and log it' : 'Open the study planner and focus timer', 'timer', () => (state.prefs.timer ? stopTimer(update, state) : go('study')), 'focus pomodoro revision crunch plan hours');
+  act('Undo the last change', 'refresh', undo, 'ctrl z back revert');
+  act('Redo', 'refresh', redo, 'ctrl y forward');
   act('Add a subject', 'plus', () => { update(s => { s.subjects.push(blankSubject(s)); }); go('subjects'); }, 'new unit');
   act('Excel workbook (.xlsx)', 'file', () => runExport('xlsx'), 'export spreadsheet');
   act('Back up everything (JSON)', 'shield', () => runExport('json'), 'export save backup');
@@ -519,7 +574,16 @@ document.getElementById('btn-palette').innerHTML = icon('search').s;
 document.getElementById('btn-palette').addEventListener('click', () => openPalette(paletteItems));
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(paletteItems); }
+  // Ctrl/Cmd Z steps the record back, unless a field is mid-edit (then the browser undoes the typing) or a dialog is open
+  const z = (e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'z', y = e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'y';
+  if (!z && !y) return;
+  const el = document.activeElement;
+  const typing = el && /^(INPUT|TEXTAREA)$/.test(el.tagName) && el.value !== el.defaultValue;
+  if (typing || document.querySelector('.modal-wrap, .pal-wrap')) return;
+  e.preventDefault();
+  if (y || e.shiftKey) redo(); else undo();
 });
+enableSpotlight();
 
 // ---------- transfer link ----------
 async function showTransferLink() {
