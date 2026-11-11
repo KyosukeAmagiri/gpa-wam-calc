@@ -897,12 +897,6 @@ body::before {
 .modal-wrap { backdrop-filter: blur(8px) saturate(1.2); -webkit-backdrop-filter: blur(8px) saturate(1.2); }
 .confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 120; pointer-events: none; }
 
-/* ---------- page transitions ---------- */
-::view-transition-old(root) { animation: 0.16s ease both vt-out; }
-::view-transition-new(root) { animation: 0.26s ease both vt-in; }
-@keyframes vt-out { to { opacity: 0; } }
-@keyframes vt-in { from { opacity: 0; } }
-
 /* ---------- welcome ---------- */
 .welcome { border-radius: 22px; background-image: radial-gradient(60% 90% at 100% 0%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 70%); }
 .welcome h2 { font-size: 40px; }
@@ -942,3 +936,46 @@ body::before {
 @media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
 .side { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
 .kpi.hero .label .gpill { height: 22px; min-width: 34px; font-size: 12px; letter-spacing: 0.02em; }
+
+/* ---------- page banner: the header band on every page, in the dashboard hero's colours ---------- */
+.banner {
+  position: relative; overflow: hidden; isolation: isolate; display: flex; align-items: center; gap: 26px; padding: 22px 26px; color: #fff; border-color: transparent;
+  background:
+    radial-gradient(70% 140% at 0% 0%, var(--hero-a), transparent 62%),
+    radial-gradient(60% 120% at 100% 100%, var(--hero-c), transparent 66%),
+    linear-gradient(120deg, #9d2235, var(--hero-b));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 22px 46px -24px rgba(157, 34, 53, 0.7);
+}
+.banner:hover { border-color: transparent; }
+.banner::after { content: ''; position: absolute; right: 8%; top: -70px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 190, 120, 0.22), transparent 68%); z-index: -1; animation: orb 10s ease-in-out infinite alternate; }
+.banner + * { margin-top: 18px; }
+.bn-main { min-width: 0; flex: 1 1 260px; }
+.bn-eyebrow { font-size: 11px; font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255, 255, 255, 0.78); }
+.bn-value { font: 650 46px/1.05 var(--font-display); letter-spacing: -0.025em; margin-top: 6px; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; text-shadow: 0 2px 22px rgba(0, 0, 0, 0.22); }
+.bn-value small { font: 500 14px/1.3 var(--font); letter-spacing: 0; color: rgba(255, 255, 255, 0.8); text-shadow: none; }
+.bn-main p { margin-top: 8px; font-size: 13.5px; color: rgba(255, 255, 255, 0.86); max-width: 62ch; }
+.bn-actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+.banner .btn { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.24); color: #fff; box-shadow: none; backdrop-filter: blur(6px); }
+.banner .btn:hover { background: rgba(255, 255, 255, 0.24); border-color: rgba(255, 255, 255, 0.4); }
+.bn-stats { display: grid; grid-template-columns: repeat(2, minmax(108px, 1fr)); gap: 8px; flex: 0 1 auto; }
+.bn-stats:has(> :nth-child(5)), .bn-stats:has(> :nth-child(3):last-child) { grid-template-columns: repeat(3, minmax(100px, 1fr)); }
+.bn-stats > div { padding: 9px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.11); border: 1px solid rgba(255, 255, 255, 0.14); display: flex; flex-direction: column; line-height: 1.2; min-width: 0; backdrop-filter: blur(6px); }
+.bn-stats small { font-size: 10px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.72); }
+.bn-stats b { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bn-stats span { font-size: 11.5px; color: rgba(255, 255, 255, 0.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.banner .hero-ring .ring-mid b { font-size: 21px; }
+.banner .hero-ring .ring-mid small { font-size: 10px; }
+@media (max-width: 1100px) {
+  .banner { flex-wrap: wrap; gap: 16px 20px; }
+  .bn-stats { order: 3; flex: 1 1 100%; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important; }
+}
+@media (max-width: 640px) {
+  .banner { padding: 18px 16px; }
+  .bn-value { font-size: 36px; }
+  .bn-main { flex-basis: 150px; }
+  .banner .hero-ring .ring { width: 92px; height: 92px; }
+  .banner .hero-ring .ring-mid b { font-size: 17px; }
+  .bn-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .bn-stats b { font-size: 17px; }
+}
+@media print { .banner { display: none !important; } }

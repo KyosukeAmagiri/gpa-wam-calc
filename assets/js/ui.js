@@ -244,3 +244,18 @@ export function ring(value, { size = 120, stroke = 10, mark = null, label = '' }
     <circle class="ring-track" cx="${c}" cy="${c}" r="${r}" fill="none" stroke-width="${stroke}"/>
     <circle class="ring-arc" cx="${c}" cy="${c}" r="${r}" fill="none" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${len.toFixed(1)}" stroke-dashoffset="${(len * (1 - p)).toFixed(1)}" style="--len:${len.toFixed(1)}" transform="rotate(-90 ${c} ${c})"/>${tick}</svg>`;
 }
+
+// The header band at the top of a page: one headline figure, a line of context, a few supporting stats and an
+// optional progress ring. stats: [{ label, value, sub }]. ring: { value 0–1, mark 0–1, text, sub }.
+export function banner({ eyebrow, value, unit = '', text = '', stats = [], ringOf = null, actions = '' }) {
+  return html`<section class="card banner">
+    <div class="bn-main">
+      <span class="bn-eyebrow">${eyebrow}</span>
+      <div class="bn-value">${value}${unit ? html`<small>${unit}</small>` : ''}</div>
+      ${text ? html`<p>${text}</p>` : ''}
+      ${actions ? html`<div class="bn-actions">${actions}</div>` : ''}
+    </div>
+    ${stats.length ? html`<div class="bn-stats">${stats.map(x => html`<div><small>${x.label}</small><b>${x.value}</b>${x.sub ? html`<span>${x.sub}</span>` : ''}</div>`)}</div>` : ''}
+    ${ringOf ? html`<div class="hero-ring">${ring(ringOf.value, { size: 116, stroke: 10, mark: ringOf.mark ?? null, label: `${ringOf.text} ${ringOf.sub || ''}` })}<div class="ring-mid"><b>${ringOf.text}</b><small>${ringOf.sub || ''}</small></div></div>` : ''}
+  </section>`;
+}

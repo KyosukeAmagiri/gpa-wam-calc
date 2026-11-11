@@ -1,4 +1,4 @@
-import { html, fmt, fmtPct, fmtSigned, gradePill, gradeStyle, series, oklch, isDark } from '../ui.js';
+import { html, fmt, fmtPct, fmtSigned, gradePill, gradeStyle, series, oklch, isDark, banner } from '../ui.js';
 import { hbarChart, columnChart } from '../charts.js';
 import { focusStats } from '../study.js';
 
@@ -27,7 +27,18 @@ export default {
     const counted = E.ledger.filter(r => r.cnt).sort((a, b) => a.rank - b.rank || a.i - b.i);
     const N = counted.length;
     return html`
-    <section class="grid g2">
+    ${banner({
+      eyebrow: 'Average mark', value: fmt(m.MARK_AVG, 1), unit: `across ${m.MARK_N} graded subject${m.MARK_N === 1 ? '' : 's'}`,
+      text: [E.text.TREND_TEXT, E.text.CONSISTENCY_TEXT].filter(t => t && t !== '—').join(' · '),
+      stats: [
+        { label: 'Best', value: m.BEST ? fmt(m.MARK_MAX, 0) : '—', sub: m.BEST ? m.BEST.code : '' },
+        { label: 'Lowest', value: m.WORST ? fmt(m.MARK_MIN, 0) : '—', sub: m.WORST ? m.WORST.code : '' },
+        { label: 'Median', value: fmt(m.MARK_MED, 1) },
+        { label: 'Spread (σ)', value: fmt(m.MARK_SD, 1) },
+      ],
+      ringOf: { value: m.HD_RATE, text: fmtPct(m.HD_RATE), sub: 'HD rate' },
+    })}
+    <section class="grid g2 mt">
       <div class="card">
         <div class="card-head"><h3>Mark heatmap</h3><span class="sub">Term WAM by year and semester · darker is stronger</span></div>
         <div class="card-body tbl-wrap"><table class="tbl heat">

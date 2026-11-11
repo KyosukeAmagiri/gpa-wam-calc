@@ -212,7 +212,7 @@ export function render() {
     const ctx = makeCtx();
     document.getElementById('page-title').textContent = v.title;
     document.getElementById('page-sub').textContent = (v.subtitle && v.subtitle(ctx)) || headline();
-    const entering = route !== shownRoute, first = shownRoute === null;
+    const entering = route !== shownRoute;
     shownRoute = route;
     const paint = () => {
       viewEl().classList.remove('enter');
@@ -226,11 +226,7 @@ export function render() {
       window.scrollTo(0, scrollY);
       restoreFocus(focus);
     };
-    // a page change cross-fades where the browser supports it; edits repaint in place
-    if (entering && !first && document.startViewTransition && !reduceMotion.matches && !document.hidden) {
-      const vt = document.startViewTransition(paint);
-      for (const p of [vt.ready, vt.finished, vt.updateCallbackDone]) p && p.catch(() => {}); // a skipped transition still paints
-    } else paint();
+    paint();
     if (!sandbox) syncNative(state, E); // the widget and reminders follow the saved record, not sandbox experiments
   }, 0);
 }

@@ -1,4 +1,4 @@
-import { html, fmt, fmtDate, chip, gradePill } from '../ui.js';
+import { html, fmt, fmtDate, chip, gradePill, banner } from '../ui.js';
 
 export default {
   title: 'Risk & opportunity',
@@ -9,11 +9,14 @@ export default {
     const bandIdx = E.helpers.bandIdx;
     const gpaD = v => (v === '' ? '—' : `${v >= 0 ? '+' : '−'}${fmt(Math.abs(v), 3)}`);
     return html`
-    <section class="kpis" style="grid-template-columns:repeat(4,minmax(0,1fr))">
-      <div class="card kpi"><div class="label">Open items</div><div class="value">${sc.openCount}</div><div class="sub">${fmt(sc.openWeight, 0)}% of item weight across ${sc.openSubjects} subject(s)</div></div>
-      <div class="card kpi"><div class="label">Best single lever</div><div class="value" style="font-size:15px;line-height:1.4">${sc.bestLever}</div></div>
-      <div class="card kpi"><div class="label">Most fragile grade</div><div class="value" style="font-size:15px;line-height:1.4">${sc.mostFragile}</div></div>
-      <div class="card kpi"><div class="label">Top slip risk</div><div class="value" style="font-size:15px;line-height:1.4">${sc.topRisk}</div></div>
+    ${banner({
+      eyebrow: 'Open assessments', value: sc.openCount, unit: `item${sc.openCount === 1 ? '' : 's'} still in play`,
+      text: sc.openCount ? `${fmt(sc.openWeight, 0)}% of item weight across ${sc.openSubjects} subject${sc.openSubjects === 1 ? '' : 's'} can still move a grade.` : 'Nothing is open, so no grade can move right now.',
+    })}
+    <section class="insight-strip">
+      <div class="card insight"><span class="em">🎯</span><div><b>Best single lever</b><span>${sc.bestLever}</span></div></div>
+      <div class="card insight"><span class="em">🧊</span><div><b>Most fragile grade</b><span>${sc.mostFragile}</span></div></div>
+      <div class="card insight"><span class="em">⚠️</span><div><b>Top slip risk</b><span>${sc.topRisk}</span></div></div>
     </section>
     <div class="callout info mt"><span>An item is <b>open</b> if it's ungraded, or its score is an estimate (Est? = Yes; Auto treats a scored item dated in the future as an estimate). Points are percentage points on the item itself.</span></div>
 

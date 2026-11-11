@@ -1,4 +1,4 @@
-import { html, icon, fmt, chip, gradeStyle, confirmDialog, toast } from '../ui.js';
+import { html, icon, fmt, chip, gradeStyle, confirmDialog, toast, banner, fmtPct } from '../ui.js';
 import { defaultOfferings, defaultPrereqs } from '../state.js';
 
 let showOfferings = false;
@@ -19,11 +19,18 @@ export default {
     };
     const loadCls = c => (c === 'past' ? 'load-past' : c.startsWith('⬆') ? 'load-up' : c.startsWith('⬇') ? 'load-down' : 'load-ok');
     return html`
-    <section class="kpis" style="grid-template-columns:repeat(6,minmax(0,1fr))">
-      ${k('Expected completion', P.COMPLETION_LBL, true)}
-      ${k('CP planned vs needed', `${fmt(E.m.CP_PLANNED, 0)} / ${fmt(E.m.CP_REMAIN, 0)} CP`, true)}
-      ${k('Load warnings', P.LOAD_ISSUES)}${k('Prereq issues', P.PREREQ_ISSUES)}${k('Offering warnings', P.OFFER_ISSUES)}${k('Gap terms', P.GAP_SEMS)}
-    </section>
+    ${banner({
+      eyebrow: 'Expected completion', value: P.COMPLETION_LBL,
+      text: P.PLAN_ISSUES ? `${P.PLAN_ISSUES} thing${P.PLAN_ISSUES === 1 ? '' : 's'} to fix in the plan below.` : 'The plan has no load, prerequisite or offering problems.',
+      stats: [
+        { label: 'CP planned', value: fmt(E.m.CP_PLANNED, 0), sub: `of ${fmt(E.m.CP_REMAIN, 0)} still needed` },
+        { label: 'Load warnings', value: P.LOAD_ISSUES },
+        { label: 'Prerequisite issues', value: P.PREREQ_ISSUES },
+        { label: 'Offering warnings', value: P.OFFER_ISSUES },
+        { label: 'Gap terms', value: P.GAP_SEMS },
+      ],
+      ringOf: { value: E.m.CP_PCT, text: fmtPct(E.m.CP_PCT), sub: 'complete' },
+    })}
 
     <section class="card mt">
       <div class="card-head"><h3>Timeline</h3><span class="sub">Terms you use, left to right · current term (Y${E.S.curYear} S${E.S.curSem}) highlighted · set it in Settings</span></div>
@@ -117,6 +124,3 @@ function checks(x) {
   return html`<span class="muted">—</span>`;
 }
 
-function k(label, value, small = false) {
-  return html`<div class="card kpi"><div class="label">${label}</div><div class="value" style="${small ? 'font-size:16px;line-height:1.35' : 'font-size:26px'}">${value}</div></div>`;
-}

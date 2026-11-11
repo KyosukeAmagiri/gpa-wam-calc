@@ -1,4 +1,4 @@
-import { html, icon, fmt, fmtDate, chip, toast, isNativeApp } from '../ui.js';
+import { html, icon, fmt, fmtDate, chip, toast, isNativeApp, banner, fmtPct } from '../ui.js';
 import { crunchWeeks, studyPlan, focusStats, awaitingMarks, studyPrefs, PACES, runningMinutes, isoDay } from '../study.js';
 import { startTimer, stopTimer, logManual, clock, FOCUS_OPTIONS } from '../timer.js';
 import { exportStudyPlan } from '../export.js';
@@ -52,10 +52,22 @@ export default {
     const todayKey = isoDay(E.today);
     const back = awaitingMarks(E);
     const next = E.dueList.find(a => a.days >= 0);
+    const weekGoal = P.weekday * 5 + P.weekend * 2;
     return html`
     ${back.length ? html`<section class="callout warn" style="margin-bottom:16px">${icon('check')}<span><b>Got ${back.length === 1 ? 'this mark' : 'these marks'} back?</b> ${back.map(a => `${a.code} ${a.name}`).join(', ')} ${back.length === 1 ? 'was' : 'were'} due over a week ago and still ${back.length === 1 ? 'has' : 'have'} no mark. <a href="#/assessments">Enter them on Assessments</a> to keep your WAM, widget and Siri current.</span></section>` : ''}
 
-    <section class="grid g-3-2 top">
+    ${banner({
+      eyebrow: 'Studied this week', value: mins(F.week), unit: weekGoal ? `of a ${hrs(weekGoal)} week` : '',
+      text: plan.items.length ? `${hrs(plan.total)} of revision is planned across ${plan.items.length} upcoming item${plan.items.length === 1 ? '' : 's'}.` : 'Add due dates and weights to your assessments and a plan builds itself.',
+      stats: [
+        { label: 'Streak', value: `${F.streak} day${F.streak === 1 ? '' : 's'}` },
+        { label: 'Sessions', value: F.sessions },
+        { label: 'Next deadline', value: next ? (next.days === 0 ? 'Today' : `${next.days} day${next.days === 1 ? '' : 's'}`) : '—', sub: next ? `${next.code} ${next.name}` : '' },
+        { label: 'Short of time', value: plan.short.length, sub: plan.short.length ? 'items need more hours' : 'everything fits' },
+      ],
+      ringOf: weekGoal ? { value: F.week / 60 / weekGoal, text: fmtPct(Math.min(1, F.week / 60 / weekGoal)), sub: 'of the week' } : null,
+    })}
+    <section class="grid g-3-2 top mt">
       <div class="card timer-card ${t ? 'running' : ''}">
         <div class="card-head"><h3>Focus timer</h3><span class="sub">${t ? 'Running. It keeps going if you close the page.' : 'Time a study session and it is logged against the subject'}</span></div>
         <div class="card-body">

@@ -1,4 +1,4 @@
-import { html, icon, fmt, fmtPct, chip, toast, confirmDialog, isNativeApp } from '../ui.js';
+import { html, icon, fmt, fmtPct, chip, toast, confirmDialog, isNativeApp, banner } from '../ui.js';
 import { setReminders, nativeStatus, REMINDER_OPTIONS, reminderPlan, SIRI_STYLES, siriProfile, forgetAssistant } from '../native.js';
 import { confirmIdentity, biometryName, setPrivacyShield } from '../lock.js';
 
@@ -21,6 +21,16 @@ export default {
     const S = E.S;
     const m = E.m;
     return html`
+    ${banner({
+      eyebrow: 'Your setup', value: `${S.gpaScale}-point`, unit: 'GPA scale',
+      text: [s.studentName, s.program, s.institution].filter(Boolean).join(' · ') || 'Add your name and program below to label your summary.',
+      stats: [
+        { label: 'Target WAM', value: fmt(S.targetWAM, 1) },
+        { label: 'Target GPA', value: fmt(S.targetGPA, 2) },
+        { label: 'Degree length', value: `${fmt(S.totalCP, 0)} CP` },
+        { label: 'Pass mark', value: fmt(S.passMark, 0) },
+      ],
+    })}
     ${isNativeApp() ? html`<section class="card" style="margin-bottom:18px">
       <div class="card-head"><h3>iPhone app</h3><span class="sub">Reminders and the home-screen widget live on this phone only</span></div>
       <div class="card-body stat-list">

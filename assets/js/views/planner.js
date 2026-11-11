@@ -1,4 +1,4 @@
-import { html, raw, icon, fmt, fmtPct, fmtSigned, chip, oklch, isDark, meter } from '../ui.js';
+import { html, raw, icon, fmt, fmtPct, fmtSigned, chip, oklch, isDark, meter, banner } from '../ui.js';
 import { whatIf, MC_N } from '../engine.js';
 import { stackedColumns, legend } from '../charts.js';
 
@@ -19,7 +19,18 @@ export default {
     const ramp = ramp3();
     const hasMC = mc.hasRemaining && m.CP_COUNTED > 0;
     return html`
-    <section class="grid g-3-2 top">
+    ${banner({
+      eyebrow: P.scenario.length ? 'Projected final WAM' : 'Where you stand', value: m.MARK_N || w.cp ? fmt(P.scenario.length ? w.proj : m.WAM, 2) : '—',
+      unit: P.scenario.length ? `with your ${fmt(w.cp, 0)} CP scenario` : 'WAM today',
+      text: hasMC ? `Across ${MC_N.toLocaleString('en-AU')} simulated finishes, the middle outcome is a ${fmt(mc.p50, 1)} WAM and a ${fmt(mc.gp50, 2)} GPA.` : 'Add planned or in-progress subjects to simulate how your degree could finish.',
+      stats: [
+        { label: 'Target WAM', value: fmt(S.targetWAM, 1), sub: m.NEED_AVG_WAM === '' ? 'degree complete' : `needs ${fmt(m.NEED_AVG_WAM, 1)} from here` },
+        { label: 'Target GPA', value: fmt(S.targetGPA, 2), sub: hasMC ? `${fmtPct(mc.pTargetGPA)} chance` : '' },
+        { label: 'Likely range', value: hasMC ? `${fmt(mc.p10, 1)} to ${fmt(mc.p90, 1)}` : '—', sub: hasMC ? '8 in 10 finishes' : '' },
+      ],
+      ringOf: hasMC ? { value: mc.pTarget, text: fmtPct(mc.pTarget), sub: 'hit target' } : null,
+    })}
+    <section class="grid g-3-2 top mt">
       <div class="card">
         <div class="card-head"><h3>Scenario subjects</h3><span class="sub">Model the marks you expect on remaining study. Nothing here touches your real record.</span>
           <div class="actions"><button class="btn sm" data-action="scen-add">${icon('plus', 15)}Add row</button><button class="btn sm ghost" data-action="scen-fill" title="Add your planned and in-progress subjects at their expected marks">Fill from plan</button></div></div>

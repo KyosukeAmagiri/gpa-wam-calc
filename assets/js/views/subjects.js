@@ -1,4 +1,4 @@
-import { html, icon, fmt, fmtPct, gradePill, confirmDialog, toast } from '../ui.js';
+import { html, icon, fmt, fmtPct, gradePill, confirmDialog, toast, banner } from '../ui.js';
 import { STATUSES, CATEGORIES, termLabel, sessionName } from '../engine.js';
 
 let filter = 'all';
@@ -52,14 +52,17 @@ export default {
       </tr>`;
     });
     return html`
-    <section class="kpis" style="grid-template-columns:repeat(6,minmax(0,1fr))">
-      ${kpi('Overall WAM', m.MARK_N ? fmt(m.WAM, 2) : '—')}
-      ${kpi('Overall GPA', m.MARK_N ? fmt(m.GPA, 3) : '—')}
-      ${kpi('Completed CP', fmt(m.CP_DONE, 0), `of ${fmt(S.totalCP, 0)}`)}
-      ${kpi('Progress', fmtPct(m.CP_PCT, 1))}
-      ${kpi('Classification', m.MARK_N ? `${m.CLASS.badge} ${m.CLASS.name}` : '—', '', true)}
-      ${kpi('Data health', E.text.HEALTH_MSG, '', true)}
-    </section>
+    ${banner({
+      eyebrow: 'Your record', value: m.SUBJ_DONE, unit: `of ${m.SUBJ_TOTAL} subjects done`,
+      text: m.MARK_N ? `${m.CLASS.badge} ${m.CLASS.name} · ${m.SUBJ_IP} in progress · ${m.SUBJ_PLAN} planned` : 'Add a mark and your WAM and GPA appear here.',
+      stats: [
+        { label: 'WAM', value: m.MARK_N ? fmt(m.WAM, 2) : '—', sub: `target ${fmt(S.targetWAM, 1)}` },
+        { label: 'GPA', value: m.MARK_N ? fmt(m.GPA, 3) : '—', sub: `target ${fmt(S.targetGPA, 2)}` },
+        { label: 'Credit points', value: fmt(m.CP_DONE, 0), sub: `of ${fmt(S.totalCP, 0)}` },
+        { label: 'High Distinctions', value: m.N_HD, sub: m.MARK_N ? `${fmtPct(m.HD_RATE)} of marks` : '' },
+      ],
+      ringOf: { value: m.CP_PCT, text: fmtPct(m.CP_PCT), sub: 'of degree' },
+    })}
     <section class="card mt">
       <div class="toolbar">
         <button class="btn primary sm" data-action="add">${icon('plus', 16)}Add subject</button>
@@ -116,9 +119,6 @@ export default {
   },
 };
 
-function kpi(label, value, sub = '', small = false) {
-  return html`<div class="card kpi"><div class="label">${label}</div><div class="value" style="${small ? 'font-size:15px;line-height:1.35' : 'font-size:24px'}">${value}${sub ? html`<small>${sub}</small>` : ''}</div></div>`;
-}
 function flagTitle(f) {
   return { '🔥': 'High Distinction', '▲': 'Above your WAM', '▼': 'Below your WAM', '❌': 'Below the pass mark', '⏳': 'In progress, no mark yet', '🗓': 'Planned', '🔁': 'Duplicate code' }[f] || '';
 }

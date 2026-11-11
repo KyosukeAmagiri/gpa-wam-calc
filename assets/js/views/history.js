@@ -1,4 +1,4 @@
-import { html, icon, fmt, fmtDate, series, todayISO, toast } from '../ui.js';
+import { html, icon, fmt, fmtDate, series, todayISO, toast, banner } from '../ui.js';
 import { lineChart } from '../charts.js';
 
 export default {
@@ -9,16 +9,17 @@ export default {
     const { m } = E;
     const rows = state.history.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
     return html`
-    <section class="card">
-      <div class="card-head"><h3>Right now</h3><span class="sub">Live figures. Log a snapshot to freeze them with today's date.</span>
-        <div class="actions"><button class="btn primary sm" data-action="snap">${icon('camera', 15)}Log snapshot</button></div></div>
-      <div class="card-body"><div class="grid g4">
-        <div><div class="eyebrow">WAM</div><div style="font-size:26px;font-weight:650">${m.MARK_N ? fmt(m.WAM, 2) : '—'}</div></div>
-        <div><div class="eyebrow">GPA</div><div style="font-size:26px;font-weight:650">${m.MARK_N ? fmt(m.GPA, 3) : '—'}</div></div>
-        <div><div class="eyebrow">CP completed</div><div style="font-size:26px;font-weight:650">${fmt(m.CP_DONE, 0)}</div></div>
-        <div><div class="eyebrow">Classification</div><div style="font-size:17px;font-weight:650;margin-top:6px">${m.MARK_N ? m.CLASS.name : '—'}</div></div>
-      </div></div>
-    </section>
+    ${banner({
+      eyebrow: 'Right now', value: m.MARK_N ? fmt(m.WAM, 2) : '—', unit: 'WAM',
+      text: 'Live figures. Log a snapshot to freeze them with today\'s date.',
+      actions: html`<button class="btn sm" data-action="snap">${icon('camera', 15)}Log snapshot</button>`,
+      stats: [
+        { label: 'GPA', value: m.MARK_N ? fmt(m.GPA, 3) : '—' },
+        { label: 'CP completed', value: fmt(m.CP_DONE, 0) },
+        { label: 'Classification', value: m.MARK_N ? m.CLASS.name : '—' },
+        { label: 'Snapshots', value: rows.length },
+      ],
+    })}
     <section class="grid g2 mt">
       <div class="card"><div class="card-head"><h3>WAM over time</h3></div><div class="card-body"><div class="chart-box" id="ch-hw"></div></div></div>
       <div class="card"><div class="card-head"><h3>GPA over time</h3></div><div class="card-body"><div class="chart-box" id="ch-hg"></div></div></div>

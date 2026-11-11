@@ -1,4 +1,4 @@
-import { html, icon, fmt, gradePillFor, chip, statusKind, toast, confirmDialog } from '../ui.js';
+import { html, icon, fmt, gradePillFor, chip, statusKind, toast, confirmDialog, banner, fmtDate, fmtPct } from '../ui.js';
 import { TYPES, cleanCode } from '../engine.js';
 import { crunchCard } from './study.js';
 import { openOutlineImport } from '../import-outline.js';
@@ -22,6 +22,7 @@ export default {
     if (items.some(a => !a.code)) groups.push({ code: '', row: null, items: items.filter(a => !a.code) });
     const trackerBy = new Map(E.tracker.map(t => [t.code, t]));
     const ipCodes = E.ledger.filter(r => r.code).map(r => r.code);
+    const nextDue = E.dueList.find(a => a.days >= 0);
     const totalW = items.reduce((s, a) => s + a.wgt, 0), gradedW = items.reduce((s, a) => s + a.wdone, 0), bonus = items.reduce((s, a) => s + a.bonus, 0);
 
     const groupHTML = g => {
@@ -69,7 +70,18 @@ export default {
 
     return html`
     <datalist id="as-codes">${ipCodes.map(c => html`<option value="${c}">`)}</datalist>
-    <div class="card" style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    ${banner({
+      eyebrow: 'Still to be marked', value: m.UNGRADED_ASSESS, unit: `of ${items.filter(a => a.name).length} assessment item${items.filter(a => a.name).length === 1 ? '' : 's'}`,
+      text: nextDue ? `Next up: ${nextDue.code} ${nextDue.name}, due ${fmtDate(nextDue.due, { weekday: 'short', day: 'numeric', month: 'short' })}${nextDue.days === 0 ? ' (today)' : ` (in ${nextDue.days} day${nextDue.days === 1 ? '' : 's'})`}.` : 'Nothing with a due date is coming up.',
+      stats: [
+        { label: 'In progress', value: E.tracker.length, sub: `subject${E.tracker.length === 1 ? '' : 's'}` },
+        { label: 'Past due, no mark', value: m.OVERDUE_N },
+        { label: 'Due in 14 days', value: m.DUE_SOON_N },
+        { label: 'Bonus banked', value: `+${fmt(bonus, 1)}` },
+      ],
+      ringOf: totalW ? { value: gradedW / totalW, text: fmtPct(gradedW / totalW), sub: 'graded' } : null,
+    })}
+    <div class="card mt" style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
       ${chip(`Weight logged ${fmt(totalW, 0)}%`, 'muted')}${chip(`Graded weight ${fmt(gradedW, 0)}%`, 'muted')}
       ${chip(`${items.filter(a => a.name).length} items`, 'muted')}${chip(`${m.UNGRADED_ASSESS} ungraded`, m.UNGRADED_ASSESS ? 'info' : 'muted')}
       ${chip(`${m.OVERDUE_N} overdue`, m.OVERDUE_N ? 'critical' : 'muted')}
